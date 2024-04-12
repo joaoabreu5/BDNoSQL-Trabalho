@@ -1,3 +1,6 @@
+-- Set the current schema to "HOSPITAL"
+ALTER SESSION SET current_schema = HOSPITAL;
+
 /***************************
    Create Sequences
 ****************************/
@@ -464,7 +467,7 @@ END;
 /
 
 
-SET DEFINE OFF;
+--SET DEFINE OFF;
 Insert into DEPARTMENT (DEPT_HEAD,DEPT_NAME,EMP_COUNT) values ('John Smith','Cardiology_1','2');
 Insert into DEPARTMENT (DEPT_HEAD,DEPT_NAME,EMP_COUNT) values ('Michael Williams','Emergency_2','3');
 Insert into DEPARTMENT (DEPT_HEAD,DEPT_NAME,EMP_COUNT) values ('Emily Johnson','Diagnostic_3','3');
@@ -689,7 +692,7 @@ Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('E
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('David Lee','888-999-0000','Parent','8');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Jennifer Martinez','999-000-1111','Sibling','9');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Daniel Harris','000-111-2222','Friend','10');
-Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Emma Thompson','111-222-3333','Sibling','1');
+--Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Emma Thompson','111-222-3333','Sibling','1');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Matthew Evans','222-333-4444','Spouse','7');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Olivia Rodriguez','333-444-5555','Parent','4');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('James Wilson','444-555-6666','Sibling','6');
