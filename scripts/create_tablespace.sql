@@ -1,10 +1,8 @@
 -- Create the tablespace
 CREATE TABLESPACE hospital_tables
 DATAFILE 'hospital_files_01.dbf'
-SIZE 200M REUSE
-AUTOEXTEND ON
-NEXT 100M
-MAXSIZE UNLIMITED;
+SIZE 200M REUSE AUTOEXTEND ON
+NEXT 100M MAXSIZE UNLIMITED;
 
 -- Create the user
 CREATE USER hospital IDENTIFIED BY "hospital" DEFAULT TABLESPACE hospital_tables 
