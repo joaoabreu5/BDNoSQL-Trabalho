@@ -4,7 +4,6 @@ ALTER SESSION SET current_schema = HOSPITAL;
 /***************************
    Create Sequences
 ****************************/
-
 CREATE SEQUENCE SEQ_PRESCRIPTION_ID
 START WITH 1
 INCREMENT BY 1
@@ -692,7 +691,7 @@ Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('E
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('David Lee','888-999-0000','Parent','8');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Jennifer Martinez','999-000-1111','Sibling','9');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Daniel Harris','000-111-2222','Friend','10');
---Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Emma Thompson','111-222-3333','Sibling','1');
+Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Emma Thompson','111-222-3323','Sibling','1');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Matthew Evans','222-333-4444','Spouse','7');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('Olivia Rodriguez','333-444-5555','Parent','4');
 Insert into EMERGENCY_CONTACT (CONTACT_NAME,PHONE,RELATION,IDPATIENT) values ('James Wilson','444-555-6666','Sibling','6');
