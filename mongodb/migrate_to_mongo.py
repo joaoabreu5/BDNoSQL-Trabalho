@@ -88,15 +88,15 @@ def main():
     parser.add_argument('-mp', '--mongodb-port', help='MongoDB port', default=27017, type=int)
     parser.add_argument('-mu', '--mongodb-user', help='MongoDB username', default='', type=str)
     parser.add_argument('-mpwd', '--mongodb-password', help='MongoDB password', default='', type=str)
-    parser.add_argument('-md', '--mongodb-database', help='MongoDB database name', default='hospital', type=str)
+    parser.add_argument('-md', '--mongodb-database', help='MongoDB database name', default='Hospital', type=str)
     
-    args = vars(parser.parse_args())
+    args = parser.parse_args()      # Para obter um dicionário: args = vars(parser.parse_args())
     
-    oracle_conn = OracleConnection(args['oracle_host'], args['oracle_port'], 
-                                   args['oracle_user'], args['oracle_password'], args['oracle_service_name'])
+    oracle_conn = OracleConnection(args.oracle_host, args.oracle_port, 
+                                   args.oracle_user, args.oracle_password, args.oracle_service_name)
     
-    mongodb_conn = MongoDBConnection(args['mongodb_host'], args['mongodb_port'], 
-                                     args['mongodb_user'], args['mongodb_password'], args['mongodb_database'])
+    mongodb_conn = MongoDBConnection(args.mongodb_host, args.mongodb_port, 
+                                     args.mongodb_user, args.mongodb_password, args.mongodb_database)
     
     migrate(oracle_conn, mongodb_conn)
 
