@@ -1,7 +1,6 @@
 import oracledb
 import pymongo
 import argparse
-import json
 
 class OracleConnection():
     host : str
@@ -9,6 +8,8 @@ class OracleConnection():
     user : str
     password : str
     service_name : str
+    connection : oracledb.Connection
+    cursor : oracledb.Cursor
     
     def __init__(self, host='localhost', port=1521, user='', password='', service_name='XEPDB1'):
         self.host = host
@@ -16,10 +17,27 @@ class OracleConnection():
         self.user = user
         self.password = password
         self.service_name = service_name
+        self.addConnection()
+        self.addCursor()
         
-    def getConnection(self):
-        return oracledb.connect(host=self.host, port=self.port, 
-                                user=self.user, password=self.password, service_name=self.service_name)
+    def addConnection(self):
+        self.connection = oracledb.connect(host=self.host, port=self.port, 
+                                           user=self.user, password=self.password, service_name=self.service_name)
+        
+    def addCursor(self):
+        self.cursor = self.connection.cursor()
+        
+    def executeQuery(self, query : str):
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+    
+    def executeSingletonQuery(self, query : str):
+        self.cursor.execute(query)
+        return self.cursor.fetchone()
+        
+    def close(self):
+        self.cursor.close()
+        self.connection.close()
     
     
 class MongoDBConnection():
@@ -27,36 +45,57 @@ class MongoDBConnection():
     port : int
     user : str
     password : str
-    database : str
+    database_name : str
+    collection_names : list
+    client : pymongo.MongoClient
+    database : pymongo.database.Database
+    collections : dict
     
-    def __init__(self, host='localhost', port=27017, user='', password='', database=''):     
+    def __init__(self, host='localhost', port=27017, user='', password='', database_name=''):     
         self.host = host
         self.port = int(port)
         self.user = user
         self.password = password
-        self.database = database
-        
-    def getClient(self):
-        return pymongo.MongoClient(host=self.host, port=self.port, 
-                                   username=self.user, password=self.password, connect=True)
-        
-    def getDatabase(self, client : pymongo.MongoClient):
-        return client.get_database(name=self.database)
+        self.database_name = database_name
+        self.collection_names = ('patients', 'staff', 'episodes')
+        self.addClient()
+        self.addDatabase()
+        self.addCollections()
     
-    def getClientAndDatabase(self):
-        client = self.getClient()
-        database = self.getDatabase(client)
-        return client, database
+    def addClient(self):
+        self.client = pymongo.MongoClient(host=self.host, port=self.port, 
+                                          username=self.user, password=self.password, connect=True)
         
-def get_patients_collection(cursor):
+    def addDatabase(self):
+        self.database = self.client.get_database(name=self.database_name)
+    
+    def addCollections(self):
+        self.collections = {}
+        for collection in self.collection_names:
+            self.collections[collection] = self.database.get_collection(name=collection)
+            
+    def getPatientsCollection(self):
+        return self.collections['patients']
+    
+    def getStaffCollection(self):
+        return self.collections['staff']
+    
+    def getEpisodesCollection(self):
+        return self.collections['episodes']
+    
+    def close(self):
+        self.client.close()
 
+
+def get_patients_collection(oracle_conn):
+    patients = []
+    
     # get data from table patient and insurance
-    cursor.execute("""
+    results = oracle_conn.executeQuery("""
         SELECT * FROM patient
         JOIN insurance ON insurance.policy_number = patient.policy_number
     """)
-    results = cursor.fetchall()
-    patients = []
+    
     for row in results:
         patient = {}
         patient['id_patient'] = int(row[0])
@@ -77,16 +116,18 @@ def get_patients_collection(cursor):
         patient['insurance']['maternity'] = False
         patient['insurance']['dental'] = False
         patient['insurance']['optical'] = False
+        
         if row[14] == 'Y':
             patient['insurance']['maternity'] = True
         if row[15] == 'Y':
             patient['insurance']['dental'] = True
         if row[16] == 'Y':
             patient['insurance']['optical'] = True
-    
+
+        
         # get data from table emergency_contact
-        cursor.execute(f"""SELECT * FROM emergency_contact WHERE idpatient = {row[0]}""")
-        emergency_contacts = cursor.fetchall()
+        emergency_contacts = oracle_conn.executeQuery(f'SELECT * FROM emergency_contact WHERE idpatient = {row[0]}')
+        
         emergency_contact_list = []
         for emergency_contact in emergency_contacts:
             emergency_contact_obj = {
@@ -94,13 +135,15 @@ def get_patients_collection(cursor):
                 'phone': emergency_contact[1],
                 'relation': emergency_contact[2],
             }
+            
             emergency_contact_list.append(emergency_contact_obj)
     
         patient['emergency_contact'] = emergency_contact_list
 
+        
         # get data from table medical_history
-        cursor.execute(f"""SELECT * FROM medical_history WHERE idpatient = {row[0]}""")
-        medical_histories = cursor.fetchall()
+        medical_histories = oracle_conn.executeQuery(f'SELECT * FROM medical_history WHERE idpatient = {row[0]}')
+        
         medical_history_list = []
         for medical_history in medical_histories:
             medical_history_obj = {
@@ -108,35 +151,46 @@ def get_patients_collection(cursor):
                 'condition': medical_history[1],
                 'record_date': medical_history[2],
             }
+            
             medical_history_list.append(medical_history_obj)
 
         patient['medical_history'] = medical_history_list
+
+
+        # Append the document to the patients list
         patients.append(patient)
+        
     return patients
 
-def get_staff_collection(cursor):
-    staff=[]
+
+def get_staff_collection(oracle_conn):
+    staff = []
+    
     # get data from table patient and insurance
-    cursor.execute("""
+    doctors = oracle_conn.executeQuery("""
         SELECT * FROM staff
         JOIN department ON department.iddepartment = staff.iddepartment
         JOIN doctor ON staff.emp_id = doctor.emp_id 
     """)
-    doctors = cursor.fetchall()
+    
     for doctor in doctors:
         doctor_obj = {}
         doctor_obj['emp_id'] = doctor[0]
         doctor_obj['emp_fname'] = doctor[1]
         doctor_obj['emp_lname'] = doctor[2]
         doctor_obj['date_joining'] = doctor[3]
+        
         if doctor[4] != None:
             doctor_obj['date_separation'] = doctor[4]
+        
         doctor_obj['email'] = doctor[5]
         doctor_obj['address'] = doctor[6]
         doctor_obj['ssn'] = int(doctor[7])
         doctor_obj['is_active_status'] = False
+        
         if doctor[9] == 'Y':
             doctor_obj['is_active_status'] = True
+        
         doctor_obj['department'] = {
             'id_department': doctor[8],
             'department_head': doctor[11],
@@ -144,50 +198,60 @@ def get_staff_collection(cursor):
         }
         doctor_obj['role'] = 'DOCTOR'
         doctor_obj['qualifications'] = doctor[15]
+        
         staff.append(doctor_obj)
 
-    cursor.execute("""
+    
+    nurses = oracle_conn.executeQuery("""
         SELECT * FROM staff
         JOIN department ON department.iddepartment = staff.iddepartment
         JOIN nurse ON staff.emp_id = nurse.staff_emp_id 
     """)
-    nurses = cursor.fetchall()
+    
     for nurse in nurses:
         nurse_obj = {}
         nurse_obj['emp_id'] = nurse[0]
         nurse_obj['emp_fname'] = nurse[1]
         nurse_obj['emp_lname'] = nurse[2]
         nurse_obj['date_joining'] = nurse[3]
+        
         if nurse[4] != None:
             nurse_obj['date_separation'] = nurse[4]
+            
         nurse_obj['email'] = nurse[5]
         nurse_obj['address'] = nurse[6]
         nurse_obj['ssn'] = int(nurse[7])
         nurse_obj['is_active_status'] = False
+        
         if nurse[9] == 'Y':
             nurse_obj['is_active_status'] = True
+        
         nurse_obj['department'] = {
             'id_department': nurse[8],
             'department_head': nurse[11],
             'department_name': nurse[12],
         }
         nurse_obj['role'] = 'NURSE'
+        
         staff.append(nurse_obj)
 
-    cursor.execute("""
+    
+    technicians = oracle_conn.executeQuery("""
         SELECT * FROM staff
         JOIN department ON department.iddepartment = staff.iddepartment
         JOIN technician ON staff.emp_id = technician.staff_emp_id 
     """)
-    technicians = cursor.fetchall()
+    
     for technician in technicians:
         technician_obj = {}
         technician_obj['emp_id'] = technician[0]
         technician_obj['emp_fname'] = technician[1]
         technician_obj['emp_lname'] = technician[2]
         technician_obj['date_joining'] = technician[3]
+        
         if technician[4] is not None:
             technician_obj['date_separation'] = technician[4]
+            
         technician_obj['email'] = technician[5]
         technician_obj['address'] = technician[6]
         technician_obj['ssn'] = int(technician[7])
@@ -198,45 +262,38 @@ def get_staff_collection(cursor):
             'department_name': technician[12],
         }
         technician_obj['role'] = 'TECHNICIAN'
+        
         staff.append(technician_obj)
 
-
+    
     return staff
 
 
-def get_episodes_collection(cursor):
+def get_episodes_collection(oracle_conn):
     return
 
-def migrate(oracleConnectObj : OracleConnection, mongodbConnectObj : MongoDBConnection):
+
+def migrate(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection):
     try:
-        oracleConnection = oracleConnectObj.getConnection()
+        patients = get_patients_collection(oracle_conn)
+        staff = get_staff_collection(oracle_conn)
+        #episodes = get_episodes_collection(oracle_conn)
 
-        cursor = oracleConnection.cursor()
-        
-        patients = get_patients_collection(cursor)
-        staff = get_staff_collection(cursor)
-        #episodes = get_episodes_collection(cursor)
-
-    finally:
-        cursor.close()
-        oracleConnection.close()
+    except Exception as e:
+        print('Erro na execução de queries na base de dados Oracle:\n' + e)
     
     
     try:
-        mongoClient, mongoDatabase = mongodbConnectObj.getClientAndDatabase()
-        
         # patients collection
-        mongoCollection = mongoDatabase['patients']
-        mongoCollection.insert_many(patients)
+        mongo_conn.getPatientsCollection().insert_many(patients)
 
         # staff collection
-        mongoCollection = mongoDatabase['staff']
-        mongoCollection.insert_many(staff)
+        mongo_conn.getStaffCollection().insert_many(staff)
 
         # episode collection
     
-    finally:
-        mongoClient.close()
+    except Exception as e:
+        print(f'Erro na inserção de documentos na base de dados \'{mongo_conn.database_name}\' do MongoDB:\n' + e)
 
 
 def main():
@@ -259,10 +316,13 @@ def main():
     oracle_conn = OracleConnection(args.oracle_host, args.oracle_port, 
                                    args.oracle_user, args.oracle_password, args.oracle_service_name)
     
-    mongodb_conn = MongoDBConnection(args.mongodb_host, args.mongodb_port, 
+    mongo_conn = MongoDBConnection(args.mongodb_host, args.mongodb_port, 
                                      args.mongodb_user, args.mongodb_password, args.mongodb_database)
     
-    migrate(oracle_conn, mongodb_conn)
+    migrate(oracle_conn, mongo_conn)
+    
+    oracle_conn.close()
+    mongo_conn.close()
 
 
 if __name__ == '__main__':
