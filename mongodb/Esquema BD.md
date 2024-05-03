@@ -68,11 +68,8 @@ staff = [
       'dept_head': str,
       'dept_name': str
     },
-    'role': {
-      '_id': ObjectId,
-      'role_name': 'DOCTOR' or 'NURSE' or 'TECHNICIAN',
-      'qualifications': str   # Campo só existe quando role_name='doctor'
-    }
+    'role': 'DOCTOR' or 'NURSE' or 'TECHNICIAN',
+    'qualifications': str   # Campo só existe quando role_name='doctor'
   }
 ]
 
