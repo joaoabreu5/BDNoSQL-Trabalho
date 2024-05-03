@@ -1,3 +1,4 @@
+-- VISION PATIENT
 -- 1) 
 -- Find all patients with a particular medical condition:
 
@@ -109,3 +110,226 @@ EXCEPTION
 END GetTotalBillingForEpisode;
 
 SELECT GetTotalBillingForEpisode(1) AS TotalBilling FROM DUAL;
+
+-- 4)
+-- Get all the info about pacient (view patient only)
+CREATE OR REPLACE TYPE patient_row AS OBJECT (
+IDPATIENT    NUMBER(38,0),
+PATIENT_FNAME    VARCHAR2(45 BYTE),
+PATIENT_LNAME    VARCHAR2(45 BYTE),
+BLOOD_TYPE    VARCHAR2(3 BYTE),
+PHONE    VARCHAR2(12 BYTE),
+EMAIL    VARCHAR2(50 BYTE),
+GENDER    VARCHAR2(10 BYTE),
+POLICY_NUMBER    VARCHAR2(45 BYTE),
+BIRTHDAY    DATE
+);
+
+CREATE OR REPLACE TYPE record_row AS OBJECT (
+RECORD_ID    NUMBER(38,0),
+CONDITION    VARCHAR2(45 BYTE),
+RECORD_DATE    DATE,
+IDPATIENT    NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE insurance_row AS OBJECT (
+POLICY_NUMBER    VARCHAR2(45 BYTE),
+PROVIDERR    VARCHAR2(45 BYTE), -- mais um r para não dar erro
+INSURANCE_PLAN    VARCHAR2(45 BYTE),
+CO_PAY    NUMBER(10,2),
+COVERAGE    VARCHAR2(20 BYTE),
+MATERNITY    CHAR(1 BYTE),
+DENTAL    CHAR(1 BYTE),
+OPTICAL    CHAR(1 BYTE)
+);
+
+CREATE OR REPLACE TYPE emergency_contact_row AS OBJECT (
+CONTACT_NAME    VARCHAR2(45 BYTE),
+PHONE    VARCHAR2(30 BYTE),
+RELATION    VARCHAR2(45 BYTE),
+IDPATIENT    NUMBER(38,0)
+);
+
+CREATE TYPE patient_table IS TABLE OF patient_row;
+CREATE TYPE record_table IS TABLE OF record_row;
+CREATE TYPE insurance_table IS TABLE OF insurance_row;
+CREATE TYPE emergency_contact_table IS TABLE OF emergency_contact_row;
+
+CREATE OR REPLACE TYPE all_patient_details AS OBJECT (
+    patient_details patient_table,
+    record_details record_table,
+    insurance_details insurance_table,
+    emergency_contact_details emergency_contact_table
+);
+
+CREATE OR REPLACE FUNCTION GetPatientDetails(patientID IN NUMBER)
+    RETURN all_patient_details IS
+    -- Temporary variables to hold the data for each table.
+    temp_patient patient_table := patient_table();
+    temp_record record_table := record_table();
+    temp_insurance insurance_table := insurance_table();
+    temp_emergency_contact emergency_contact_table := emergency_contact_table();
+
+BEGIN
+    -- Populate the patient details
+    FOR rec IN (
+        SELECT p.idpatient, p.patient_fname, p.patient_lname, p.blood_type, p.phone AS patient_phone, 
+               p.email, p.gender, p.policy_number AS patient_policy_number, p.birthday
+        FROM hospital.patient p
+        WHERE p.idpatient = patientID
+    ) LOOP
+        temp_patient.EXTEND;
+        temp_patient(temp_patient.LAST) := patient_row(rec.idpatient, rec.patient_fname, rec.patient_lname, rec.blood_type, rec.patient_phone, 
+                                                      rec.email, rec.gender, rec.patient_policy_number, rec.birthday);
+    END LOOP;
+
+    -- Populate the record details
+    FOR rec IN (
+        SELECT r.record_id, r.condition, r.record_date, r.idpatient
+        FROM hospital.record r
+        WHERE r.idpatient = patientID
+    ) LOOP
+        temp_record.EXTEND;
+        temp_record(temp_record.LAST) := record_row(rec.record_id, rec.condition, rec.record_date, rec.idpatient);
+    END LOOP;
+
+    -- Populate the insurance details
+    FOR rec IN (
+        SELECT i.policy_number, i.provider, i.insurance_plan, i.co_pay, i.coverage, 
+               i.maternity, i.dental, i.optical
+        FROM hospital.insurance i
+        WHERE i.policy_number = (SELECT policy_number FROM hospital.patient WHERE idpatient = patientID)
+    ) LOOP
+        temp_insurance.EXTEND;
+        temp_insurance(temp_insurance.LAST) := insurance_row(rec.policy_number, rec.provider, rec.insurance_plan, 
+                                                             rec.co_pay, rec.coverage, rec.maternity, rec.dental, rec.optical);
+    END LOOP;
+
+    -- Populate the emergency contact details
+    FOR rec IN (
+        SELECT e.contact_name, e.phone, e.relation, e.idpatient
+        FROM hospital.emergency_contact e
+        WHERE e.idpatient = patientID
+    ) LOOP
+        temp_emergency_contact.EXTEND;
+        temp_emergency_contact(temp_emergency_contact.LAST) := emergency_contact_row(rec.contact_name, rec.phone, rec.relation, rec.idpatient);
+    END LOOP;
+
+    -- Return the composite object
+    RETURN all_patient_details(temp_patient, temp_record, temp_insurance, temp_emergency_contact);
+END GetPatientDetails;
+
+-- CREATE OR REPLACE FUNCTION GetPatientDetails(patientID IN NUMBER)
+--     RETURN patient_table PIPELINED IS
+-- BEGIN
+--     FOR rec IN (
+--         SELECT p.idpatient, p.patient_fname, p.patient_lname, p.blood_type, p.phone AS patient_phone, 
+--                p.email, p.gender, p.policy_number AS patient_policy_number, p.birthday
+--         FROM hospital.patient p
+--         WHERE p.idpatient = patientID
+--     ) LOOP 
+--         PIPE ROW(patient_row(patientID, p.patient_fname, p.patient_lname, p.blood_type, p.patient_phone, 
+--                               p.email, p.gender, p.patient_policy_number, p.birthday));
+--     END LOOP;
+
+--     RETURN;
+-- END GetPatientDetails;
+
+SELECT * FROM TABLE(GetPatientDetails(1));
+
+-- VISION STAFF
+-- Get all the info about Staff
+CREATE OR REPLACE TYPE hospital_staff AS OBJECT (
+EMP_ID    NUMBER(38,0),
+EMP_FNAME VARCHAR2(45 BYTE),
+EMP_LNAME VARCHAR2(45 BYTE),
+DATE_JOINING DATE
+DATE_SEPERATION DATE
+EMAIL VARCHAR2(50 BYTE),
+ADDRESSS VARCHAR2(50 BYTE), -- Mais um S para não dar erro
+SSN NUMBER(38,0),
+IDDEPARTMENT NUMBER(38,0),
+IS_ACTIVE_STATUS VARCHAR2(1 BYTE)
+);
+
+CREATE OR REPLACE TYPE hospital_department AS OBJECT (
+IDDEPARTMENT    NUMBER(38,0),
+DERT_HEAD    VARCHAR2(45 BYTE),
+DEPT_NAME    VARCHAR2(45 BYTE),
+EMP_COUNT    NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE  AS OBJECT (
+STAFF_EMP_ID    NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE hospital_doctor AS OBJECT (
+EMP_ID    NUMBER(38,0),
+QUALIFICATIONS  VARCHAR2(45 BYTE)
+);
+
+CREATE OR REPLACE TYPE hospital_technician AS OBJECT (
+STAFF_EMP_ID    NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE all_staff_details AS OBJECT (
+    staff_details hospital_staff,
+    department_details hospital_department,
+    nurse_details hospital_nurse,
+    doctor_details hospital_doctor,
+    technician_details hospital_technician
+);
+
+CREATE OR REPLACE FUNCTION GetStaffDetails(staffID IN NUMBER)
+    RETURN all_staff_details IS
+
+    -- Temporary variables to hold the data for each table.
+    temp_staff hospital_staff;
+    temp_department hospital_department;
+    temp_nurse hospital_nurse;
+    temp_doctor hospital_doctor;
+    temp_technician hospital_technician;
+
+BEGIN
+    -- Populate the staff details
+    SELECT 
+        hospital_staff(emp_id, emp_fname, emp_lname, date_joining, date_separation, 
+                       email, addresss, ssn, iddepartment, is_active_status)
+    INTO temp_staff
+    FROM hospital_staff
+    WHERE emp_id = staffID;
+
+    -- Populate the department details
+    SELECT 
+        hospital_department(iddepartment, dept_head, dept_name, emp_count)
+    INTO temp_department
+    FROM hospital_department
+    WHERE iddepartment = temp_staff.iddepartment;
+
+    -- Check if the staff is a nurse
+    SELECT 
+        hospital_nurse(staff_emp_id)
+    INTO temp_nurse
+    FROM hospital_nurse
+    WHERE staff_emp_id = staffID;
+
+    -- Check if the staff is a doctor
+    SELECT 
+        hospital_doctor(emp_id, qualifications)
+    INTO temp_doctor
+    FROM hospital_doctor
+    WHERE emp_id = staffID;
+
+    -- Check if the staff is a technician
+    SELECT 
+        hospital_technician(staff_emp_id)
+    INTO temp_technician
+    FROM hospital_technician
+    WHERE staff_emp_id = staffID;
+
+    -- Return the composite object
+    RETURN all_staff_details(temp_staff, temp_department, temp_nurse, temp_doctor, temp_technician);
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RETURN NULL;  -- Handle cases where no data is available
+END GetStaffDetails;
