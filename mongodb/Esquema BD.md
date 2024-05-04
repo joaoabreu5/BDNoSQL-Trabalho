@@ -10,7 +10,7 @@ from bson import ObjectId
 patients = [
   {
     '_id': ObjectId, # Unique Index
-    'id_patient': int, # Unique Index
+    'id_patient': int, # Unique Index (descending order)
     'patient_fname': str,
     'patient_lname': str,
     'blood_type': str,
@@ -19,7 +19,6 @@ patients = [
     'gender': str,
     'birthday': date,
     'insurance': {
-      '_id': ObjectId,
       'policy_number': str,
       'provider': str,
       'insurance_plan': str,
@@ -31,17 +30,15 @@ patients = [
     },
     'medical_history': [
       {
-        '_id': ObjectId,
-        'record_id': int, # Unique and Sparse Index
+        'record_id': int, # Unique and Sparse Index (descending order)
         'condition': str,
         'record_date': date
       }
     ],
     'emergency_contacts': [
       {
-        '_id': ObjectId,
         'contact_name': str,
-        'phone': str, # Unique and Sparse Index ('_id', 'phone')
+        'phone': str, # Unique and Sparse Compound Index [('_id', descending order), 'phone']
         'relation': str
       }
     ]
@@ -53,7 +50,7 @@ patients = [
 staff = [
   {
     '_id': ObjectId, # Unique Index
-    'emp_id': int,  # Unique Index
+    'emp_id': int,  # Unique Index (descending order)
     'emp_fname': str,
     'emp_lname': str,
     'date_joining': date,
@@ -63,7 +60,6 @@ staff = [
     'ssn': int,
     'is_active_status': bool,
     'department': {
-      '_id': ObjectId,
       'id_department': int,
       'dept_head': str,
       'dept_name': str
@@ -78,22 +74,19 @@ staff = [
 episodes = [
   {
     '_id': ObjectId, # Unique Index
-    'id_episode': int,  # Unique Index
+    'id_episode': int,  # Unique Index (descending order)
     'id_patient': ObjectId,  # $lookup: { from: 'patients', foreignField: '_id' }
     'appointment': {
-      '_id': ObjectId,
       'scheduled_on' : date,
       'appointment_date' : date,
       'appointment_time' : str,
       'id_doctor' : ObjectId   # $lookup: { from: 'staff', foreignField: '_id' }
     },
     'hospitalization': {
-      '_id': ObjectId,
       'admission_date': date,
       'discharge_date': date,
       'responsible_nurse': ObjectId,   # $lookup: { from: 'staff', foreignField: '_id' }
       'room': {
-        '_id': ObjectId,
         'id_room': int,
         'room_type': str,
         'room_cost': float
@@ -101,12 +94,10 @@ episodes = [
     },
     'prescriptions': [
       {
-        '_id': ObjectId,
-        'id_prescription': int,  # Unique and Sparse Index
+        'id_prescription': int,  # Unique and Sparse Index (descending order)
         'prescription_date': date,
         'dosage': int,
         'medicine': {
-          '_id': ObjectId,
           'id_medicine': int,
           'm_name': str,
           'm_quantity': int,
@@ -116,8 +107,7 @@ episodes = [
     ],
     'bills': [
       {
-        '_id': ObjectId,
-        'id_bill': int,  # Unique and Sparse Index
+        'id_bill': int,  # Unique and Sparse Index (descending order)
         'room_cost': float,
         'test_cost': float, 
         'other_charges': float,
@@ -128,8 +118,7 @@ episodes = [
     ],
     'lab_screenings': [
       {
-        '_id': ObjectId,
-        'lab_id': int,  # Unique and Sparse Index
+        'lab_id': int,  # Unique and Sparse Index (descending order)
         'test_cost': float,
         'test_date': date,
         'id_technician': ObjectId  # $lookup: { from: 'staff', foreignField: '_id' }
