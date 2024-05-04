@@ -1,6 +1,11 @@
 import oracledb
 import pymongo
 import argparse
+import logging
+import json
+
+from bson import ObjectId
+from datetime import date, datetime
 
 class OracleConnection():
     host : str
@@ -74,17 +79,56 @@ class MongoDBConnection():
         for collection in self.collection_names:
             self.collections[collection] = self.database.get_collection(name=collection)
             
-    def getPatientsCollection(self):
+    def getPatientsCollection(self) -> pymongo.collection.Collection:
         return self.collections['patients']
     
-    def getStaffCollection(self):
+    def getStaffCollection(self) -> pymongo.collection.Collection:
         return self.collections['staff']
     
-    def getEpisodesCollection(self):
+    def getEpisodesCollection(self) -> pymongo.collection.Collection:
         return self.collections['episodes']
     
     def close(self):
         self.client.close()
+
+
+def format_exception_message(message, exception):
+    return f'{message}:\n\n\t{exception}'
+    
+    
+def convert_to_JSON_serializable(obj):
+    if isinstance(obj, list) or isinstance(obj, set) or isinstance(obj, tuple):
+        converted_obj = []
+        
+        for value in obj:
+            converted_obj.append(convert_to_JSON_serializable(value))
+            
+        if isinstance(obj, tuple):
+            converted_obj = tuple(converted_obj)
+                
+    elif isinstance(obj, dict):
+        converted_obj = {}
+        
+        for key, value in obj.items():
+            converted_obj[key] = convert_to_JSON_serializable(value)
+        
+    elif isinstance(obj, datetime):
+        converted_obj = obj.strftime("ISODate('%Y-%m-%d %H:%M:%S')")
+            
+    elif isinstance(obj, date):
+        converted_obj = obj.strftime("ISODate('%Y-%m-%d')")
+    
+    elif isinstance(obj, ObjectId):
+        converted_obj = f"ObjectId('{obj}')"
+    
+    else:
+        converted_obj = obj
+    
+    return converted_obj
+    
+    
+def print_document(doc):    
+    print(json.dumps(convert_to_JSON_serializable(doc), ensure_ascii=False, indent=2))
 
 
 def get_patients_collection(oracle_conn):
@@ -278,22 +322,38 @@ def migrate(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection):
         patients = get_patients_collection(oracle_conn)
         staff = get_staff_collection(oracle_conn)
         #episodes = get_episodes_collection(oracle_conn)
-
+        
     except Exception as e:
-        print('Erro na execução de queries na base de dados Oracle:\n' + e)
+        logging.critical(format_exception_message('Erro na execução de queries na base de dados Oracle', e))
     
     
     try:
-        # patients collection
-        mongo_conn.getPatientsCollection().insert_many(patients)
+        # 'patients' collection
+        patientsCol = mongo_conn.getPatientsCollection()
+        
+        patientsCol.create_index([('id_patient', -1)], unique=True)
+        patientsCol.create_index([('medical_history.record_id', -1)], unique=True, sparse=True)
+        patientsCol.create_index([('_id', -1), 'emergency_contacts.phone'], unique=True, sparse=True)
+        
+        patientsCol.insert_many(patients)
 
-        # staff collection
-        mongo_conn.getStaffCollection().insert_many(staff)
+        # 'staff' collection
+        staffCol = mongo_conn.getStaffCollection()
+        
+        staffCol.create_index([('emp_id', -1)], unique=True)
+        staffCol.insert_many(staff)
 
-        # episode collection
-    
+        # 'episode' collection
+        episodesCol = mongo_conn.getEpisodesCollection()
+        
+        episodesCol.create_index([('id_episode', -1)], unique=True)
+        episodesCol.create_index([('prescriptions.id_prescription', -1)], unique=True, sparse=True)
+        episodesCol.create_index([('bills.id_bill', -1)], unique=True, sparse=True)
+        episodesCol.create_index([('lab_screenings.lab_id', -1)], unique=True, sparse=True)
+        
+
     except Exception as e:
-        print(f'Erro na inserção de documentos na base de dados \'{mongo_conn.database_name}\' do MongoDB:\n' + e)
+        logging.critical(format_exception_message(f'Erro na inserção de documentos na base de dados \'{mongo_conn.database_name}\' do MongoDB', e))
 
 
 def main():
@@ -312,6 +372,9 @@ def main():
     parser.add_argument('-md', '--mongodb-database', help='MongoDB database name', default='Hospital', type=str)
     
     args = parser.parse_args()      # Para obter um dicionário: args = vars(parser.parse_args())
+    
+    logging.basicConfig(level=logging.INFO, 
+                        format="[%(asctime)s] - %(levelname)s - line %(lineno)d, in '%(funcName)s' - %(message)s\n\n")
     
     oracle_conn = OracleConnection(args.oracle_host, args.oracle_port, 
                                    args.oracle_user, args.oracle_password, args.oracle_service_name)
