@@ -313,15 +313,122 @@ def get_staff_collection(oracle_conn):
     return staff
 
 
-def get_episodes_collection(oracle_conn):
-    return
+def get_ObjectId(oid: int, objectids: list, role: str):
+    for obj in objectids:
+        if obj['emp_id'] == oid and obj['role'] == role:
+            return obj['_id']
+    return None
+
+def get_episodes_collection(oracle_conn: OracleConnection, mongo_conn: MongoDBConnection, patients_ids: list, staff_ids: list):
+    episodes = []
+
+    # Retrieve the inserted patient documents
+    inserted_patients = list(mongo_conn.getPatientsCollection().find({'_id': {'$in': patients_ids}}, {'id_patient': 1}))
+    
+    # Retrieve the inserted staff documents
+    inserted_staff = list(mongo_conn.getStaffCollection().find({'_id': {'$in': staff_ids}}, {'emp_id': 1, 'role': 1}))
+    
+    for patient in inserted_patients:
+        episodes_oracle = oracle_conn.executeQuery(f"""
+            SELECT * FROM episode 
+            LEFT JOIN appointment ON episode.idepisode = appointment.idepisode
+            LEFT JOIN hospitalization ON episode.idepisode = hospitalization.idepisode 
+            WHERE patient_idpatient = {patient['id_patient']}
+        """)
+        
+        for episode in episodes_oracle:
+            episode_object = {}
+            episode_object['id_episode'] = int(episode[0])
+            episode_object['id_patient'] = patient['_id']
+            episode_object['prescriptions'] = []
+            episode_object['bills'] = []
+            episode_object['lab_screenings'] = []
+
+            if episode[2]:
+                appointment_object = {}
+                appointment_object['schedule_on'] = episode[2]
+                appointment_object['appointment_date'] = episode[3]
+                appointment_object['appointment_time'] = episode[4]
+                appointment_object['id_doctor'] = get_ObjectId(episode[5], inserted_staff, 'DOCTOR')
+                episode_object['appointment'] = appointment_object
+            
+            if episode[7]:
+                hospitalization_object = {}
+                hospitalization_object['admission_date'] = episode[7]
+                hospitalization_object['discharge_date'] = episode[8]
+                hospitalization_object['responsible_nurse'] = get_ObjectId(episode[11], inserted_staff, 'NURSE')
+                
+                # Get the rooms information for the hospitalization
+                hospitalization = oracle_conn.executeSingletonQuery(f"""
+                    SELECT * FROM room WHERE idroom = {episode[9]} 
+                """)
+                
+                hospitalization_object['room'] = {
+                    'id_room': int(hospitalization[0]),
+                    'room_type': hospitalization[1],
+                    'room_cost': float(hospitalization[2]),
+                }
+                
+                episode_object['hospitalization'] = hospitalization_object
+            
+            # Get all the prescriptions for the episode
+            prescriptions = oracle_conn.executeQuery(f""" 
+                SELECT * FROM prescription 
+                JOIN medicine ON prescription.idmedicine = medicine.idmedicine
+                WHERE prescription.idepisode = {episode[0]}
+            """)
+            
+            for prescription in prescriptions:
+                prescription_object = {}
+                prescription_object['id_prescription'] = int(prescription[0])
+                prescription_object['prescription_date'] = prescription[1]
+                prescription_object['dosage'] = int(prescription[2])
+                prescription_object['medicine'] = {
+                    'id_medicine': int(prescription[5]),
+                    'm_name': prescription[6],
+                    'm_quantity': int(prescription[7]),
+                    'm_cost': float(prescription[8]),
+                }
+                episode_object['prescriptions'].append(prescription_object)
+            
+            # Get all the bills for the episode
+            bills = oracle_conn.executeQuery(f""" 
+                SELECT * FROM bill WHERE bill.idepisode = {episode[0]}
+            """)
+            
+            for bill in bills:
+                bill_object = {}
+                bill_object['id_bill'] = bill[0]
+                bill_object['room_cost'] = float(bill[1])
+                bill_object['test_cost'] = float(bill[2])
+                bill_object['other_charges'] = float(bill[3])
+                bill_object['total'] = float(bill[4])
+                bill_object['registered_at'] = bill[5]
+                bill_object['payment_status'] = bill[6]
+                episode_object['bills'].append(bill_object)
+
+            # Get all the lab screenings for the episode
+            lab_screenings = oracle_conn.executeQuery(f"""
+                SELECT * FROM lab_screening WHERE lab_screening.episode_idepisode = {episode[0]}
+            """)
+            
+            for lab_screening in lab_screenings:
+                lab_screening_object = {}
+                lab_screening_object['lab_id'] = int(lab_screening[0])
+                lab_screening_object['test_cost'] = float(lab_screening[1])
+                lab_screening_object['test_date'] = lab_screening[2]
+                lab_screening_object['id_technician'] = get_ObjectId(lab_screening[3], inserted_staff, 'TECHNICIAN')
+                episode_object['lab_screenings'].append(lab_screening_object)
+            
+            episodes.append(episode_object)
+        
+    return episodes
 
 
 def migrate(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection):
     try:
         patients = get_patients_collection(oracle_conn)
         staff = get_staff_collection(oracle_conn)
-        #episodes = get_episodes_collection(oracle_conn)
         
     except Exception as e:
         logging.critical(format_exception_message('Erro na execução de queries na base de dados Oracle', e))
@@ -335,15 +442,20 @@ def migrate(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection):
         patientsCol.create_index([('medical_history.record_id', -1)], unique=True, sparse=True)
         patientsCol.create_index([('_id', -1), 'emergency_contacts.phone'], unique=True, sparse=True)
         
-        patientsCol.insert_many(patients)
+        patients_insertion = patientsCol.insert_many(patients)
+        patients_ids = patients_insertion.inserted_ids
 
         # 'staff' collection
         staffCol = mongo_conn.getStaffCollection()
         
         staffCol.create_index([('emp_id', -1)], unique=True)
-        staffCol.insert_many(staff)
+        
+        staff_insertion = staffCol.insert_many(staff)
+        staff_ids = staff_insertion.inserted_ids
 
-        # 'episode' collection
+        # 'episodes' collection
+        episodes = get_episodes_collection(oracle_conn, mongo_conn, patients_ids, staff_ids)
+        
         episodesCol = mongo_conn.getEpisodesCollection()
         
         episodesCol.create_index([('id_episode', -1)], unique=True)
@@ -351,7 +463,8 @@ def migrate(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection):
         episodesCol.create_index([('bills.id_bill', -1)], unique=True, sparse=True)
         episodesCol.create_index([('lab_screenings.lab_id', -1)], unique=True, sparse=True)
         
-
+        episodesCol.insert_many(episodes)
+        
     except Exception as e:
         logging.critical(format_exception_message(f'Erro na inserção de documentos na base de dados \'{mongo_conn.database_name}\' do MongoDB', e))
 
@@ -379,8 +492,8 @@ def main():
     oracle_conn = OracleConnection(args.oracle_host, args.oracle_port, 
                                    args.oracle_user, args.oracle_password, args.oracle_service_name)
     
-    mongo_conn = MongoDBConnection(args.mongodb_host, args.mongodb_port, 
-                                     args.mongodb_user, args.mongodb_password, args.mongodb_database)
+    mongo_conn = MongoDBConnection(args.mongodb_host, args.mongodb_port,
+                                   args.mongodb_user, args.mongodb_password, args.mongodb_database)
     
     migrate(oracle_conn, mongo_conn)
     
