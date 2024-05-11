@@ -126,4 +126,15 @@ episodes = [
     ]
   }
 ]
+
+
+# Coleção 'counters'
+counters = [
+  {
+    '_id': ObjectId,
+    'field': str, # Unique Compound Index ['field', 'col']
+    'col': str,
+    'seq': int
+  }
+]
 ```
