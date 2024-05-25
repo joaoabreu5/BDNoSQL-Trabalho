@@ -56,20 +56,25 @@ class MongoDBConnection():
     database : pymongo.database.Database
     collections : dict
     
-    def __init__(self, host='localhost', port=27017, user='', password='', database_name=''):     
+    def __init__(self, host='localhost', port=27017, user='', password='', database_name=''):
         self.host = host
         self.port = int(port)
         self.user = user
         self.password = password
         self.database_name = database_name
-        self.collection_names = ('patients', 'staff', 'episodes', 'counters')   # Não alterar a ordem dos valores do tuplo!
+        self.collection_names = ('patients', 'staff', 'episodes', 'counters')   # Não alterar a ordem/índice dos valores no tuplo!
         self.addClient()
         self.addDatabase()
         self.addCollections()
     
     def addClient(self):
-        self.client = pymongo.MongoClient(host=self.host, port=self.port, 
-                                          username=self.user, password=self.password)
+        args = { 'host': self.host, 'port': self.port }
+        if self.user:
+            args['username'] = self.user
+        if self.password:
+            args['password'] = self.password
+        
+        self.client = pymongo.MongoClient(**args)
         
     def addDatabase(self):
         self.database = self.client.get_database(name=self.database_name)
