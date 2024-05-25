@@ -606,7 +606,7 @@ def main():
     parser.add_argument('-mp', '--mongodb-port', help='MongoDB port', default=27017, type=int)
     parser.add_argument('-mu', '--mongodb-user', help='MongoDB username', default='', type=str)
     parser.add_argument('-mpwd', '--mongodb-password', help='MongoDB password', default='', type=str)
-    parser.add_argument('-md', '--mongodb-database', help='MongoDB database name', default='Hospital', type=str)
+    parser.add_argument('-md', '--mongodb-database', help='MongoDB database name', default='hospital', type=str)
     
     args = parser.parse_args()      # Para obter um dicionário: args = vars(parser.parse_args())
     
