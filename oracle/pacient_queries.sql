@@ -1,0 +1,274 @@
+-- Delete 
+-- Check for existing dependencies first
+-- SELECT * FROM USER_DEPENDENCIES WHERE REFERENCED_NAME = 'PATIENTROW';
+
+-- Drop the table type if it exists
+-- DROP TYPE PatientTable;
+
+-- Drop the object type if it exists
+-- DROP TYPE PatientRow;
+
+-- 1)
+-- All info about Hospital.Patient
+CREATE OR REPLACE TYPE PatientRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE
+);
+
+CREATE OR REPLACE TYPE PatientTable IS TABLE OF PatientRow;
+
+CREATE OR REPLACE FUNCTION AllInfoPatient(id_patient IN NUMBER)
+  RETURN PatientTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM Hospital.Patient p
+    WHERE p.IDPATIENT = id_patient
+  ) LOOP
+    PIPE ROW (PatientRow(rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE,
+                         rec.PHONE, rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY));
+  END LOOP;
+  RETURN;
+END AllInfoPatient;
+
+SELECT * FROM TABLE(AllInfoPatient(2));
+
+-- 2) 
+-- All info about Hospital.Medical_History
+CREATE OR REPLACE TYPE MedicalHistoryRow AS OBJECT (
+  RECORD_ID NUMBER,
+  RECORD_DATE DATE,
+  IDPATIENT NUMBER,
+  CONDITION VARCHAR2(25)
+);
+
+CREATE OR REPLACE TYPE MedicalHistoryTable IS TABLE OF MedicalHistoryRow;
+
+CREATE OR REPLACE FUNCTION AllInfoMedicalHistory(id_patient IN NUMBER)
+  RETURN MedicalHistoryTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT m.RECORD_ID, m.RECORD_DATE, m.IDPATIENT, m.CONDITION
+    FROM HOSPITAL.MEDICAL_HISTORY m
+    WHERE m.IDPATIENT = id_patient
+  ) LOOP
+    PIPE ROW (MedicalHistoryRow(rec.RECORD_ID, rec.RECORD_DATE, rec.IDPATIENT, rec.CONDITION));
+  END LOOP;
+  RETURN;
+END AllInfoMedicalHistory;
+
+SELECT * FROM TABLE(AllInfoMedicalHistory(1));
+
+-- 3)
+-- All info about Hospital.Insurance
+CREATE OR REPLACE TYPE InsuranceRow AS OBJECT (
+  POLICY_NUMBER VARCHAR2(45),
+  PROVIDER VARCHAR2(45),
+  INSURANCE_PLAN VARCHAR2(45),
+  CO_PAY NUMBER(10,2),
+  COVERAGE VARCHAR2(20),
+  MATERNITY CHAR(1),
+  DENTAL CHAR(1),
+  OPTICAL CHAR(1)
+);
+
+CREATE OR REPLACE TYPE InsuranceTable IS TABLE OF InsuranceRow;
+
+CREATE OR REPLACE FUNCTION AllInfoInsurance(id_patient IN NUMBER)
+  RETURN InsuranceTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT i.POLICY_NUMBER, i.PROVIDER, i.INSURANCE_PLAN, i.CO_PAY, i.COVERAGE,
+           i.MATERNITY, i.DENTAL, i.OPTICAL
+    FROM HOSPITAL.INSURANCE i
+    JOIN HOSPITAL.PATIENT p ON i.POLICY_NUMBER = p.POLICY_NUMBER
+    WHERE p.IDPATIENT = id_patient
+  ) LOOP
+    PIPE ROW (InsuranceRow(rec.POLICY_NUMBER, rec.PROVIDER, rec.INSURANCE_PLAN, rec.CO_PAY,
+                           rec.COVERAGE, rec.MATERNITY, rec.DENTAL, rec.OPTICAL));
+  END LOOP;
+  RETURN;
+END AllInfoInsurance;
+
+SELECT * FROM TABLE(AllInfoInsurance(1));
+
+-- 4)
+-- All info about Hospital.Emergency_Contact
+CREATE OR REPLACE TYPE EmergencyContactRow AS OBJECT (
+  CONTACT_NAME VARCHAR2(45),
+  PHONE VARCHAR2(30),
+  RELATION VARCHAR2(45),
+  IDPATIENT NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE EmergencyContactTable IS TABLE OF EmergencyContactRow;
+
+CREATE OR REPLACE FUNCTION AllInfoEmergencyContact(id_patient IN NUMBER)
+  RETURN EmergencyContactTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT e.CONTACT_NAME, e.PHONE, e.RELATION, e.IDPATIENT
+    FROM HOSPITAL.EMERGENCY_CONTACT e
+    WHERE e.IDPATIENT = id_patient
+  ) LOOP
+    PIPE ROW (EmergencyContactRow(rec.CONTACT_NAME, rec.PHONE, rec.RELATION, rec.IDPATIENT));
+  END LOOP;
+  RETURN;
+END AllInfoEmergencyContact;
+
+SELECT * FROM TABLE(AllInfoEmergencyContact(1));
+
+-- 5)
+-- Combined type for all patient information
+CREATE OR REPLACE TYPE PatientAllInfoRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE,
+  RECORD_ID NUMBER(38,0),
+  RECORD_DATE DATE, 
+  CONDITION VARCHAR2(25),
+  INSURANCE_PROVIDER VARCHAR2(45),
+  INSURANCE_PLAN VARCHAR2(45),
+  CO_PAY NUMBER(10,2),
+  COVERAGE VARCHAR2(20),
+  MATERNITY CHAR(1),
+  DENTAL CHAR(1),
+  OPTICAL CHAR(1),
+  EMERGENCY_CONTACT_NAME VARCHAR2(45),
+  EMERGENCY_CONTACT_PHONE VARCHAR2(12),
+  EMERGENCY_CONTACT_RELATION VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE PatientAllInfoTable IS TABLE OF PatientAllInfoRow;
+
+CREATE OR REPLACE FUNCTION AllInfoPatient(id_patient IN NUMBER)
+  RETURN PatientAllInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY,
+           m.RECORD_ID, m.RECORD_DATE, m.CONDITION,
+           i.PROVIDER AS INSURANCE_PROVIDER, i.INSURANCE_PLAN, i.CO_PAY, i.COVERAGE,
+           i.MATERNITY, i.DENTAL, i.OPTICAL,
+           e.CONTACT_NAME AS EMERGENCY_CONTACT_NAME, e.PHONE AS EMERGENCY_CONTACT_PHONE,
+           e.RELATION AS EMERGENCY_CONTACT_RELATION
+    FROM HOSPITAL.PATIENT p
+    LEFT JOIN HOSPITAL.MEDICAL_HISTORY m ON p.IDPATIENT = m.IDPATIENT
+    LEFT JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    LEFT JOIN HOSPITAL.EMERGENCY_CONTACT e ON p.IDPATIENT = e.IDPATIENT
+    WHERE p.IDPATIENT = id_patient
+  ) LOOP
+    PIPE ROW (PatientAllInfoRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY,
+      rec.RECORD_ID, rec.RECORD_DATE, rec.CONDITION,
+      rec.INSURANCE_PROVIDER, rec.INSURANCE_PLAN, rec.CO_PAY, rec.COVERAGE,
+      rec.MATERNITY, rec.DENTAL, rec.OPTICAL,
+      rec.EMERGENCY_CONTACT_NAME, rec.EMERGENCY_CONTACT_PHONE, rec.EMERGENCY_CONTACT_RELATION
+    ));
+  END LOOP;
+  RETURN;
+END AllInfoPatient;
+
+SELECT * FROM TABLE(AllInfoPatient(2));
+
+-- 6)
+-- Get Pacient(s) by BloodType
+CREATE OR REPLACE FUNCTION AllInfoPatientByBloodType(blood_type IN VARCHAR2)
+  RETURN PatientTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM HOSPITAL.PATIENT p
+    WHERE p.BLOOD_TYPE = blood_type
+  ) LOOP
+    PIPE ROW (PatientRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY
+    ));
+  END LOOP;
+  RETURN;
+END AllInfoPatientByBloodType;
+
+-- Query to retrieve patient information for a specific blood type
+SELECT * FROM TABLE(AllInfoPatientByBloodType('A+'));
+
+-- 7)
+-- Get Pacient(s) by Gender
+CREATE OR REPLACE FUNCTION AllInfoPatientByGender(gender IN VARCHAR2)
+  RETURN PatientTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM HOSPITAL.PATIENT p
+    WHERE p.GENDER = gender
+  ) LOOP
+    PIPE ROW (PatientRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY
+    ));
+  END LOOP;
+  RETURN;
+END AllInfoPatientByGender;
+
+-- Query to retrieve patient information for a specific gender
+SELECT * FROM TABLE(AllInfoPatientByGender('Male'));
+
+-- 8)
+-- Get Pacients by Condition
+CREATE OR REPLACE FUNCTION GetPatientsWithCondition(p_condition IN VARCHAR2)
+  RETURN PatientTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM Patient p
+    INNER JOIN Medical_History mh ON p.IDPATIENT = mh.IDPATIENT
+    WHERE mh.CONDITION = p_condition
+  ) LOOP
+    PIPE ROW (PatientRow(rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE,
+                         rec.PHONE, rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY));
+  END LOOP;
+  RETURN;
+END GetPatientsWithCondition;
+
+SELECT * FROM TABLE(GetPatientsWithCondition('Flu'));
+
+-- 9)
+-- Get all types of Relations
+CREATE OR REPLACE TYPE RelationTypeRow AS OBJECT (
+  RELATION VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE RelationTypeTable IS TABLE OF RelationTypeRow;
+
+CREATE OR REPLACE FUNCTION ListAllRelations
+  RETURN RelationTypeTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT DISTINCT e.RELATION
+    FROM HOSPITAL.EMERGENCY_CONTACT e
+  ) LOOP
+    PIPE ROW (RelationTypeRow(rec.RELATION));
+  END LOOP;
+  RETURN;
+END ListAllRelations;
+
+-- Query to retrieve all unique relationship types
+SELECT * FROM TABLE(ListAllRelations);
