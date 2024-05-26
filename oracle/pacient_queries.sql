@@ -272,3 +272,279 @@ END ListAllRelations;
 
 -- Query to retrieve all unique relationship types
 SELECT * FROM TABLE(ListAllRelations);
+
+-- 10)
+-- Get all types of Providers
+CREATE OR REPLACE TYPE ProviderInfoRow AS OBJECT (
+  PROVIDER VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE ProviderInfoTable IS TABLE OF ProviderInfoRow;
+
+CREATE OR REPLACE FUNCTION ListAllProviders
+  RETURN ProviderInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT DISTINCT i.PROVIDER
+    FROM HOSPITAL.INSURANCE i
+  ) LOOP
+    PIPE ROW (ProviderInfoRow(rec.PROVIDER));
+  END LOOP;
+  RETURN;
+END ListAllProviders;
+
+-- Query to retrieve all unique providers
+SELECT * FROM TABLE(ListAllProviders);
+
+-- 11)
+-- Get all types of InsurancePlans
+-- Type for insurance plan information
+CREATE OR REPLACE TYPE InsurancePlanInfoRow AS OBJECT (
+  INSURANCE_PLAN VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE InsurancePlanInfoTable IS TABLE OF InsurancePlanInfoRow;
+
+CREATE OR REPLACE FUNCTION ListAllInsurancePlans
+  RETURN InsurancePlanInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT DISTINCT i.INSURANCE_PLAN
+    FROM HOSPITAL.INSURANCE i
+  ) LOOP
+    PIPE ROW (InsurancePlanInfoRow(rec.INSURANCE_PLAN));
+  END LOOP;
+  RETURN;
+END ListAllInsurancePlans;
+
+-- Query to retrieve all unique insurance plans
+SELECT * FROM TABLE(ListAllInsurancePlans);
+
+-- 12)
+-- Get all types of Coverage
+-- Type for coverage information
+CREATE OR REPLACE TYPE CoverageInfoRow AS OBJECT (
+  COVERAGE VARCHAR2(20)
+);
+
+CREATE OR REPLACE TYPE CoverageInfoTable IS TABLE OF CoverageInfoRow;
+
+CREATE OR REPLACE FUNCTION ListAllCoverages
+  RETURN CoverageInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT DISTINCT i.COVERAGE
+    FROM HOSPITAL.INSURANCE i
+  ) LOOP
+    PIPE ROW (CoverageInfoRow(rec.COVERAGE));
+  END LOOP;
+  RETURN;
+END ListAllCoverages;
+
+-- Query to retrieve all unique coverage types
+SELECT * FROM TABLE(ListAllCoverages);
+
+-- 12)
+-- Get all types of Conditions
+-- Type for condition information
+CREATE OR REPLACE TYPE ConditionInfoRow AS OBJECT (
+  CONDITION VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE ConditionInfoTable IS TABLE OF ConditionInfoRow;
+
+CREATE OR REPLACE FUNCTION ListAllConditions
+  RETURN ConditionInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT DISTINCT m.CONDITION
+    FROM HOSPITAL.MEDICAL_HISTORY m
+  ) LOOP
+    PIPE ROW (ConditionInfoRow(rec.CONDITION));
+  END LOOP;
+  RETURN;
+END ListAllConditions;
+
+-- Query to retrieve all unique conditions
+SELECT * FROM TABLE(ListAllConditions);
+
+-- 13)
+-- Get all types of Blood
+-- Type for blood type information
+CREATE OR REPLACE TYPE BloodTypeInfoRow AS OBJECT (
+  BLOOD_TYPE VARCHAR2(3)
+);
+
+CREATE OR REPLACE TYPE BloodTypeInfoTable IS TABLE OF BloodTypeInfoRow;
+
+CREATE OR REPLACE FUNCTION ListAllBloodTypes
+  RETURN BloodTypeInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT DISTINCT p.BLOOD_TYPE
+    FROM HOSPITAL.PATIENT p
+  ) LOOP
+    PIPE ROW (BloodTypeInfoRow(rec.BLOOD_TYPE));
+  END LOOP;
+  RETURN;
+END ListAllBloodTypes;
+
+-- Query to retrieve all unique blood types
+SELECT * FROM TABLE(ListAllBloodTypes);
+
+-- 14)
+-- Returns all patients with medical history records on a date, including the condition. 
+-- Type for patient information with medical history
+CREATE OR REPLACE TYPE PatientMedicalHistoryRow AS OBJECT (
+  IDPATIENT NUMBER,
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE,
+  CONDITION VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE PatientMedicalHistoryTable IS TABLE OF PatientMedicalHistoryRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsByMedicalHistoryDate(target_date IN DATE)
+  RETURN PatientMedicalHistoryTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY, mh.CONDITION
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.MEDICAL_HISTORY mh ON p.IDPATIENT = mh.IDPATIENT
+    WHERE mh.RECORD_DATE = target_date
+  ) LOOP
+    PIPE ROW (PatientMedicalHistoryRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY, rec.CONDITION
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsByMedicalHistoryDate;
+
+-- Query to retrieve all patients with medical history on a specific date
+SELECT * FROM TABLE(ListPatientsByMedicalHistoryDate(TO_DATE('23.01.15', 'YY.MM.DD')));
+
+-- 15)
+-- All the patients that have a spectific insurance provider
+-- Type for patient information with insurance provider
+CREATE OR REPLACE TYPE PatientInsuranceRow AS OBJECT (
+  IDPATIENT NUMBER,
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE,
+  INSURANCE_PROVIDER VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE PatientInsuranceTable IS TABLE OF PatientInsuranceRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsByInsuranceProvider(provider_name IN VARCHAR2)
+  RETURN PatientInsuranceTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY, i.PROVIDER AS INSURANCE_PROVIDER
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    WHERE i.PROVIDER = provider_name
+  ) LOOP
+    PIPE ROW (PatientInsuranceRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY, rec.INSURANCE_PROVIDER
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsByInsuranceProvider;
+
+-- Query to retrieve all patients with a specific insurance provider
+SELECT * FROM TABLE(ListPatientsByInsuranceProvider('DEF Insurance'));
+
+-- 16)
+-- All the patients that have a spectific insurance plan
+-- Type for patient information with insurance plan
+CREATE OR REPLACE TYPE PatientInsurance_PlanRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE,
+  INSURANCE_PLAN VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE PatientInsurance_PlanTable IS TABLE OF PatientInsurance_PlanRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsByInsurancePlan(plan_name IN VARCHAR2)
+  RETURN PatientInsurance_PlanTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY, i.INSURANCE_PLAN
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    WHERE i.INSURANCE_PLAN = plan_name
+  ) LOOP
+    PIPE ROW (PatientInsurance_PlanRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY, rec.INSURANCE_PLAN
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsByInsurancePlan;
+
+-- Query to retrieve all patients with a specific insurance plan
+SELECT * FROM TABLE(ListPatientsByInsurancePlan('Standard Plan'));
+
+
+-- 17)
+-- All the patients that have a spectific coverage
+-- Type for patient information with coverage
+CREATE OR REPLACE TYPE PatientCoverageRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE,
+  COVERAGE VARCHAR2(20)
+);
+
+CREATE OR REPLACE TYPE PatientCoverageTable IS TABLE OF PatientCoverageRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsByCoverage(coverage_name IN VARCHAR2)
+  RETURN PatientCoverageTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY, i.COVERAGE
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    WHERE i.COVERAGE = coverage_name
+  ) LOOP
+    PIPE ROW (PatientCoverageRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY, rec.COVERAGE
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsByCoverage;
+
+-- Query to retrieve all patients with a specific coverage
+SELECT * FROM TABLE(ListPatientsByCoverage('Full Coverage'));
