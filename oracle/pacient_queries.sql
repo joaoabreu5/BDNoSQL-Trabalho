@@ -548,3 +548,151 @@ END ListPatientsByCoverage;
 
 -- Query to retrieve all patients with a specific coverage
 SELECT * FROM TABLE(ListPatientsByCoverage('Full Coverage'));
+
+-- 18)
+-- ListPatientsByAgeRange: Retrieve all patients within a specified age range.
+-- Type for patient information with age range
+CREATE OR REPLACE TYPE PatientAgeRangeRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE
+);
+
+CREATE OR REPLACE TYPE PatientAgeRangeTable IS TABLE OF PatientAgeRangeRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsByAgeRange(min_age IN NUMBER, max_age IN NUMBER)
+  RETURN PatientAgeRangeTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM HOSPITAL.PATIENT p
+    WHERE TRUNC(MONTHS_BETWEEN(SYSDATE, p.BIRTHDAY) / 12) BETWEEN min_age AND max_age
+  ) LOOP
+    PIPE ROW (PatientAgeRangeRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsByAgeRange;
+
+-- Query to retrieve all patients within a specified age range
+SELECT * FROM TABLE(ListPatientsByAgeRange(30, 40));
+
+-- ListPatientsWithMaternityCoverage: Retrieve all patients who have maternity coverage in their insurance plan.
+-- Type for patient information with maternity coverage
+CREATE OR REPLACE TYPE PatientMaternityCoverageRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE
+);
+
+CREATE OR REPLACE TYPE PatientMaternityCoverageTable IS TABLE OF PatientMaternityCoverageRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsWithMaternityCoverage
+  RETURN PatientMaternityCoverageTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    WHERE i.MATERNITY = 'Y'
+  ) LOOP
+    PIPE ROW (PatientMaternityCoverageRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsWithMaternityCoverage;
+
+-- Query to retrieve all patients with maternity coverage
+SELECT * FROM TABLE(ListPatientsWithMaternityCoverage);
+
+-- ListPatientsWithDentalCoverage: Retrieve all patients who have dental coverage in their insurance plan.
+-- Type for patient information with dental coverage
+CREATE OR REPLACE TYPE PatientDentalCoverageRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE
+);
+
+CREATE OR REPLACE TYPE PatientDentalCoverageTable IS TABLE OF PatientDentalCoverageRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsWithDentalCoverage
+  RETURN PatientDentalCoverageTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    WHERE i.DENTAL = 'Y'
+  ) LOOP
+    PIPE ROW (PatientDentalCoverageRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsWithDentalCoverage;
+
+-- Query to retrieve all patients with dental coverage
+SELECT * FROM TABLE(ListPatientsWithDentalCoverage);
+
+-- ListPatientsWithOpticalCoverage: Retrieve all patients who have optical coverage in their insurance plan.
+-- Type for patient information with optical coverage
+CREATE OR REPLACE TYPE PatientOpticalCoverageRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE
+);
+
+CREATE OR REPLACE TYPE PatientOpticalCoverageTable IS TABLE OF PatientOpticalCoverageRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsWithOpticalCoverage
+  RETURN PatientOpticalCoverageTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    WHERE i.OPTICAL = 'Y'
+  ) LOOP
+    PIPE ROW (PatientOpticalCoverageRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsWithOpticalCoverage;
+
+-- Query to retrieve all patients with optical coverage
+SELECT * FROM TABLE(ListPatientsWithOpticalCoverage);
