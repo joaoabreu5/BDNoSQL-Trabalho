@@ -509,7 +509,6 @@ END ListPatientsByInsurancePlan;
 -- Query to retrieve all patients with a specific insurance plan
 SELECT * FROM TABLE(ListPatientsByInsurancePlan('Standard Plan'));
 
-
 -- 17)
 -- All the patients that have a spectific coverage
 -- Type for patient information with coverage
