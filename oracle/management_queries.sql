@@ -53,7 +53,7 @@ END AllInfoPrescription;
 SELECT * FROM TABLE(AllInfoPrescription(1));
 
 -- 3)
--- All info about Hospital.Episode
+-- All info about only Hospital.Episode
 CREATE OR REPLACE TYPE EpisodeRow AS OBJECT (
   IDEPISODE NUMBER(38,0),
   PATIENT_IDPATIENT NUMBER(38,0)
@@ -70,6 +70,34 @@ BEGIN
     WHERE e.IDEPISODE = id_episode
   ) LOOP
     PIPE ROW (EpisodeRow(rec.IDEPISODE, rec.PATIENT_IDPATIENT));
+  END LOOP;
+  RETURN;
+END AllInfoEpisode;
+
+SELECT * FROM TABLE(AllInfoEpisode(1));
+
+-- All info about Hospital.Episode + Hospital.Appointment 
+CREATE OR REPLACE TYPE EpisodeRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0),
+  SCHEDULED_ON DATE,
+  APPOINTMENT_DATE DATE,
+  APPOINTMENT_TIME VARCHAR2(5 BYTE),
+  IDDOCTOR NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE EpisodeTable IS TABLE OF EpisodeRow;
+
+CREATE OR REPLACE FUNCTION AllInfoEpisode(id_episode IN NUMBER)
+  RETURN EpisodeTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT e.IDEPISODE, e.PATIENT_IDPATIENT, a.SCHEDULED_ON, a.APPOINTMENT_DATE, a.APPOINTMENT_TIME, a.IDDOCTOR
+    FROM Hospital.Episode e
+    JOIN Hospital.Appointment a ON e.IDEPISODE = a.IDEPISODE
+    WHERE e.IDEPISODE = id_episode
+  ) LOOP
+    PIPE ROW (EpisodeRow(rec.IDEPISODE, rec.PATIENT_IDPATIENT, rec.SCHEDULED_ON, rec.APPOINTMENT_DATE, rec.APPOINTMENT_TIME, rec.IDDOCTOR));
   END LOOP;
   RETURN;
 END AllInfoEpisode;
@@ -158,62 +186,30 @@ END AllInfoHospitalization;
 
 SELECT * FROM TABLE(AllInfoHospitalization(3));
 
--- TODO
 -- 7)
--- All info about Hospital.Appointment
--- CREATE OR REPLACE TYPE AppointmentRow AS OBJECT (
---   IDAPPOINTMENT NUMBER(10,0),
---   SCHEDULED_DATE DATE,
---   APPOINTMENT_DATE DATE,
---   APPOINTMENT_TIME VARCHAR2(8),
---   IDEPISODE NUMBER(10,0),
---   IDDOCTOR NUMBER(10,0)
--- );
-
--- CREATE OR REPLACE TYPE AppointmentTable IS TABLE OF AppointmentRow;
-
--- CREATE OR REPLACE FUNCTION AllInfoAppointment(id_appointment IN NUMBER)
---   RETURN AppointmentTable PIPELINED IS
--- BEGIN
---   FOR rec IN (
---     SELECT a.IDAPPOINTMENT, a.SCHEDULED_DATE, a.APPOINTMENT_DATE, a.APPOINTMENT_TIME,
---            a.IDEPISODE, a.IDDOCTOR
---     FROM Hospital.Appointment a
---     WHERE a.IDAPPOINTMENT = id_appointment
---   ) LOOP
---     PIPE ROW (AppointmentRow(rec.IDAPPOINTMENT, rec.SCHEDULED_DATE, rec.APPOINTMENT_DATE,
---                              rec.APPOINTMENT_TIME, rec.IDEPISODE, rec.IDDOCTOR));
---   END LOOP;
---   RETURN;
--- END AllInfoAppointment;
-
--- SELECT * FROM TABLE(AllInfoAppointment(1));
-
--- 8)
 -- All info about Hospital.Lab_Screening
--- CREATE OR REPLACE TYPE LabScreeningRow AS OBJECT (
---   IDLAB NUMBER(38,0),
---   TEST_COST NUMBER(10,2),
---   TEST_DATE DATE,
---   IDTECHNICIAN NUMBER(38,0),
---   EPISODE_IDEPISODE NUMBER(38,0)
--- );
+CREATE OR REPLACE TYPE LabScreeningRow AS OBJECT (
+  IDLAB NUMBER(38,0),
+  TEST_COST NUMBER(10,2),
+  TEST_DATE DATE,
+  IDTECHNICIAN NUMBER(38,0),
+  EPISODE_IDEPISODE NUMBER(38,0)
+);
 
--- CREATE OR REPLACE TYPE LabScreeningTable IS TABLE OF LabScreeningRow;
+CREATE OR REPLACE TYPE LabScreeningTable IS TABLE OF LabScreeningRow;
 
--- CREATE OR REPLACE FUNCTION AllInfoLabScreening(id_labs IN NUMBER)
---   RETURN LabScreeningTable PIPELINED IS
--- BEGIN
---   FOR rec IN (
---     SELECT lab.ID_LAB, lab.TEST_COST, lab.TEST_DATE, lab.ID_TECHNICIAN AS IDTECHNICIAN, lab.EPISODE_ID AS EPISODE_IDEPISODE
---     FROM Hospital.Lab_Screening lab
---     WHERE lab.ID_LAB = id_labs
---   ) LOOP
---     PIPE ROW (LabScreeningRow(rec.IDLAB, rec.TEST_COST, rec.TEST_DATE, rec.IDTECHNICIAN,
---                               rec.EPISODE_IDEPISODE));
---   END LOOP;
---   RETURN;
--- END AllInfoLabScreening;
+CREATE OR REPLACE FUNCTION AllInfoLabScreening(id_labs IN NUMBER)
+  RETURN LabScreeningTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT lab.LAB_ID, lab.TEST_COST, lab.TEST_DATE, lab.IDTECHNICIAN, lab.EPISODE_IDEPISODE
+    FROM Hospital.Lab_Screening lab
+    WHERE lab.LAB_ID = id_labs
+  ) LOOP
+    PIPE ROW (LabScreeningRow(rec.LAB_ID, rec.TEST_COST, rec.TEST_DATE, rec.IDTECHNICIAN,
+                              rec.EPISODE_IDEPISODE));
+  END LOOP;
+  RETURN;
+END AllInfoLabScreening;
 
--- SELECT * FROM TABLE(AllInfoLabScreening(1));
-
+SELECT * FROM TABLE(AllInfoLabScreening(1));
