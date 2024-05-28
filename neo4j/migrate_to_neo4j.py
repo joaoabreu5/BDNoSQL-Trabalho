@@ -76,16 +76,226 @@ class Neo4jConnection():
     def close(self):
         self.session.close()
         self.driver.close()
-    
-    
-def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
-    # Exemplo de inserção em Neo4j
-    neo4j_conn.executeQuery("""
-        MERGE (m: Musica { id: 0, nome: 'Clocks' })
-        MERGE (a: Autor { id: 0, nome: 'Coldplay' })
-        WITH m, a
-        MERGE (m) - [:ESCRITA_POR] -> (a)
+
+def migrate_patients(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
+    # get data from table patient and insurance
+    results = oracle_conn.executeQuery("""
+        SELECT * FROM patient
+        JOIN insurance ON insurance.policy_number = patient.policy_number
     """)
+
+    for row in results:
+        # create patient node
+        node_patient = {    
+            'id_patient': row[0],
+            'patient_fname': row[1],
+            'patient_lname': row[2],
+            'blood_type': row[3],
+            'phone': row[4],
+            'email': row[5],
+            'gender': row[6],
+            'birthday': row[8]
+        }
+
+        node_insurance = {
+            'policy_number': row[7],
+            'provider': row[10],
+            'insurance_plan': row[11],
+            'co_pay': float(row[12]),
+            'coverage': row[13],
+            'maternity': False,
+            'dental': False,
+            'optical': False
+        }
+        if row[14] == 'Y':
+            node_insurance['maternity'] = True
+        if row[15] == 'Y':
+            node_insurance['dental'] = True
+        if row[16] == 'Y':
+            node_insurance['optical'] = True
+
+
+        # Create patient node
+        neo4j_conn.executeQuery(f"""
+            MERGE (p:Patient {{id_patient: {node_patient['id_patient']}, 
+                patient_fname: '{node_patient['patient_fname']}', 
+                patient_lname: '{node_patient['patient_lname']}',
+                blood_type: '{node_patient['blood_type']}', 
+                phone: '{node_patient['phone']}',
+                email: '{node_patient['email']}',
+                gender: '{node_patient['gender']}',
+                birthday: '{node_patient['birthday']}'}})
+            MERGE (i:Insurance {{policy_number: '{node_insurance['policy_number']}',
+                provider: '{node_insurance['provider']}',
+                insurance_plan: '{node_insurance['insurance_plan']}',
+                co_pay: {node_insurance['co_pay']},
+                coverage: '{node_insurance['coverage']}',
+                maternity: {node_insurance['maternity']},
+                dental: {node_insurance['dental']},
+                optical: {node_insurance['optical']}}})
+            MERGE (p)-[:HAS_INSURANCE]->(i)
+            """)
+
+        # Create emergency contacts and associate with patient
+        emergency_contacts = oracle_conn.executeQuery(f'SELECT * FROM emergency_contact WHERE idpatient = {row[0]}')
+        for contact in emergency_contacts:
+            node_contact = {
+                'contact_name': contact[0],
+                'phone': contact[1],
+                'relation': contact[2],
+            }
+            neo4j_conn.executeQuery(f"""
+                MATCH (p:Patient {{id_patient: {node_patient['id_patient']}}})
+                MERGE (c:EmergencyContact {{contact_name: '{node_contact['contact_name']}',
+                    phone: '{node_contact['phone']}',
+                    relation: '{node_contact['relation']}'}})
+                MERGE (p)-[:HAS_EMERGENCY_CONTACT]->(c)
+                """)
+
+        # Create medical histories and associate with patient
+        medical_histories = oracle_conn.executeQuery(f'SELECT * FROM medical_history WHERE idpatient = {row[0]}')
+        for history in medical_histories:
+            node_history = {
+                'record_id': history[0],
+                'condition': history[1],
+                'record_date': history[2],
+            }
+            neo4j_conn.executeQuery(f"""
+                MATCH (p:Patient {{id_patient: {node_patient['id_patient']}}})
+                MERGE (m:MedicalHistory {{record_id: {node_history['record_id']}, 
+                    condition: '{node_history['condition']}', 
+                    record_date: '{node_history['record_date']}'}}) 
+                MERGE (p)-[:HAS_MEDICAL_HISTORY]->(m)
+                """)
+
+def migrate_department(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
+    # Get all the departments
+    departments = oracle_conn.executeQuery('SELECT * FROM department')
+
+    for department in departments:
+        node_department = {
+            'id_department': department[0],
+            'department_head': department[1],
+            'department_name': department[2],
+        }
+
+        neo4j_conn.executeQuery(f"""
+            MERGE (dep:Department {{
+                id_department: '{node_department['id_department']}',
+                department_head: '{node_department['department_head']}',
+                department_name: '{node_department['department_name']}'
+            }})
+        """)
+
+def create_staff_node_and_relationship(node, node_label, department_id):
+    properties_str = f"""
+        emp_id: {node['emp_id']},
+        emp_fname: '{node['emp_fname']}',
+        emp_lname: '{node['emp_lname']}',
+        date_of_joining: '{node['date_of_joining']}',
+        email: '{node['email']}',
+        address: '{node['address']}',
+        ssn: '{node['ssn']}',
+        is_active_status: {str(node['is_active_status']).lower()},
+        role: '{node['role']}'
+        """
+    
+    if 'qualification' in node:
+        properties_str += f", qualification: '{node['qualification']}'"
+    
+    if node.get('date_separation'):
+        properties_str += f", date_separation: '{node['date_separation']}'"
+
+    query = f"""
+        MERGE (n:{node_label} {{{properties_str}}})
+        WITH n
+        MATCH (dep:Department {{id_department: '{department_id}'}})
+        MERGE (n)-[:WORKS_IN]->(dep)
+    """
+    return query
+
+def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
+    
+    # Get data from table doctor and department
+    doctors = oracle_conn.executeQuery("""
+        SELECT * FROM staff
+        JOIN doctor ON staff.emp_id = doctor.emp_id 
+    """)
+
+    for doctor in doctors:
+        node_doctor = {
+            'emp_id': doctor[0],
+            'emp_fname': doctor[1],
+            'emp_lname': doctor[2],
+            'date_of_joining': doctor[3],
+            'date_separation': doctor[4],
+            'email': doctor[5],
+            'address': doctor[6],
+            'ssn': int(doctor[7]),
+            'is_active_status': doctor[9] == 'Y',
+            'department_id': doctor[8],
+            'role': 'DOCTOR',
+            'qualification': doctor[10]
+        }
+
+        doctor_query = create_staff_node_and_relationship(node_doctor, 'Doctor', node_doctor['department_id'])
+        neo4j_conn.executeQuery(doctor_query)
+
+    # Get data from table nurse and department
+    nurses = oracle_conn.executeQuery("""
+        SELECT * FROM staff
+        JOIN nurse ON staff.emp_id = nurse.staff_emp_id 
+    """)
+
+    for nurse in nurses:
+        node_nurse = {
+            'emp_id': nurse[0],
+            'emp_fname': nurse[1],
+            'emp_lname': nurse[2],
+            'date_of_joining': nurse[3],
+            'date_separation': nurse[4],
+            'email': nurse[5],
+            'address': nurse[6],
+            'ssn': int(nurse[7]),
+            'is_active_status': nurse[9] == 'Y',
+            'department_id': nurse[8],
+            'role': 'NURSE',
+        }
+
+        nurse_query = create_staff_node_and_relationship(node_nurse, 'Nurse', node_nurse['department_id'])
+        neo4j_conn.executeQuery(nurse_query)
+
+    # Get data from table technician and department
+    technicians = oracle_conn.executeQuery("""
+        SELECT * FROM staff
+        JOIN technician ON staff.emp_id = technician.staff_emp_id 
+    """)
+
+    for technician in technicians:
+        node_technician = {
+            'emp_id': technician[0],
+            'emp_fname': technician[1],
+            'emp_lname': technician[2],
+            'date_of_joining': technician[3],
+            'date_separation': technician[4],
+            'email': technician[5],
+            'address': technician[6],
+            'ssn': int(technician[7]),
+            'is_active_status': technician[9] == 'Y',
+            'department_id': technician[8],
+            'role': 'TECHNICIAN',
+        }
+
+        technician_query = create_staff_node_and_relationship(node_technician, 'Technician', node_technician['department_id'])
+        neo4j_conn.executeQuery(technician_query)
+
+def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
+    # Inserção de pacientes em Neo4j
+    migrate_patients(oracle_conn, neo4j_conn)
+    # Insert department elements in Neo4j
+    migrate_department(oracle_conn, neo4j_conn)
+    # Insert staff elements in Neo4j
+    migrate_staff(oracle_conn, neo4j_conn)
 
 
 def main():
