@@ -523,8 +523,8 @@ def migrate_episodes(oracle_conn: OracleConnection,
                 bill_object['test_cost'] = float(bill[2])
                 bill_object['other_charges'] = float(bill[3])
                 bill_object['total'] = float(bill[4])
-                bill_object['registered_at'] = bill[5]
-                bill_object['payment_status'] = bill[6]
+                bill_object['registered_at'] = bill[6]
+                bill_object['payment_status'] = bill[7]
                 episode_object['bills'].append(bill_object)
 
             # Get all the lab screenings for the episode
