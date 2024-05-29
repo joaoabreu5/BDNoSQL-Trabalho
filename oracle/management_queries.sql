@@ -213,3 +213,622 @@ BEGIN
 END AllInfoLabScreening;
 
 SELECT * FROM TABLE(AllInfoLabScreening(1));
+
+-- 8)
+-- Information from all the tables (TODO - Resultado Incorreto acho)
+CREATE OR REPLACE TYPE EpisodeInfoRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0),
+  SCHEDULED_ON DATE,
+  APPOINTMENT_DATE DATE,
+  APPOINTMENT_TIME VARCHAR2(5 BYTE),
+  IDDOCTOR NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_IDROOM NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0),
+  IDPRESCRIPTION NUMBER(38,0),
+  PRESCRIPTION_DATE DATE,
+  DOSAGE NUMBER(38,0),
+  IDMEDICINE NUMBER(38,0),
+  IDBILL NUMBER(38,0),
+  ROOM_COST NUMBER(10,2),
+  TEST_COST NUMBER(10,2),
+  OTHER_CHARGES NUMBER(10,2),
+  TOTAL NUMBER(10,2),
+  REGISTERED_AT DATE,
+  PAYMENT_STATUS VARCHAR2(10 BYTE),
+  LAB_ID NUMBER(38,0),
+  LAB_TEST_COST NUMBER(10,2),
+  IDTECHNICIAN NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE EpisodeInfoTable IS TABLE OF EpisodeInfoRow;
+
+CREATE OR REPLACE FUNCTION GetAllEpisodeInfo(id_episode IN NUMBER)
+  RETURN EpisodeInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT 
+        e.IDEPISODE,
+        e.PATIENT_IDPATIENT,
+        a.SCHEDULED_ON,
+        a.APPOINTMENT_DATE,
+        a.APPOINTMENT_TIME,
+        a.IDDOCTOR,
+        h.ADMISSION_DATE,
+        h.DISCHARGE_DATE,
+        h.ROOM_IDROOM,
+        h.RESPONSIBLE_NURSE,
+        p.IDPRESCRIPTION,
+        p.PRESCRIPTION_DATE,
+        p.DOSAGE,
+        p.IDMEDICINE,
+        b.IDBILL,
+        b.ROOM_COST,
+        b.TEST_COST,
+        b.OTHER_CHARGES,
+        b.TOTAL,
+        b.REGISTERED_AT,
+        b.PAYMENT_STATUS,
+        l.LAB_ID,
+        l.TEST_COST AS LAB_TEST_COST,
+        l.IDTECHNICIAN
+    FROM 
+        Hospital.Episode e
+    LEFT JOIN 
+        Hospital.Appointment a ON e.IDEPISODE = a.IDEPISODE
+    LEFT JOIN 
+        Hospital.Hospitalization h ON e.IDEPISODE = h.IDEPISODE
+    LEFT JOIN 
+        Hospital.Prescription p ON e.IDEPISODE = p.IDEPISODE
+    LEFT JOIN 
+        Hospital.Bill b ON e.IDEPISODE = b.IDEPISODE
+    LEFT JOIN 
+        Hospital.Lab_Screening l ON e.IDEPISODE = l.EPISODE_IDEPISODE
+    WHERE 
+        e.IDEPISODE = id_episode
+  ) LOOP
+    PIPE ROW (EpisodeInfoRow(
+      rec.IDEPISODE,
+      rec.PATIENT_IDPATIENT,
+      rec.SCHEDULED_ON,
+      rec.APPOINTMENT_DATE,
+      rec.APPOINTMENT_TIME,
+      rec.IDDOCTOR,
+      rec.ADMISSION_DATE,
+      rec.DISCHARGE_DATE,
+      rec.ROOM_IDROOM,
+      rec.RESPONSIBLE_NURSE,
+      rec.IDPRESCRIPTION,
+      rec.PRESCRIPTION_DATE,
+      rec.DOSAGE,
+      rec.IDMEDICINE,
+      rec.IDBILL,
+      rec.ROOM_COST,
+      rec.TEST_COST,
+      rec.OTHER_CHARGES,
+      rec.TOTAL,
+      rec.REGISTERED_AT,
+      rec.PAYMENT_STATUS,
+      rec.LAB_ID,
+      rec.LAB_TEST_COST,
+      rec.IDTECHNICIAN
+    ));
+  END LOOP;
+  RETURN;
+END GetAllEpisodeInfo;
+
+SELECT * FROM TABLE(GetAllEpisodeInfo(2));
+
+
+------------------------------------------------------------------------------------------------------------
+
+-- Hospital.Medicine
+-- 1) Listar por nome
+SELECT M.M_NAME
+FROM Hospital.Medicine M
+ORDER BY M.NAME;
+
+-- 2) Listar por quantidade
+SELECT M.M_QUANTITY
+FROM Hospital.Medicine M
+ORDER BY M.M_QUANTITY;
+
+-- 3) Listar por custo
+SELECT M.M_COST
+FROM Hospital.Medicine M
+ORDER BY M.M_COST;
+
+-- 4)
+SELECT M.M_NAME, M.M_QUANTITY, M.M_COST
+FROM Hospital.Medicine M
+ORDER BY M.M_NAME;
+
+-- 5) Listar medicação por quantidade disponível
+SELECT M.M_NAME, M.M_QUANTITY
+FROM Hospital.Medicine M
+ORDER BY M.M_QUANTITY;
+
+-- 6) Listar medicações por faixa de custo
+SELECT M.M_NAME, M.M_COST,
+       CASE 
+           WHEN M.M_COST < 50 THEN 'Low'
+           WHEN M.M_COST BETWEEN 50 AND 100 THEN 'Medium'
+           ELSE 'High'
+       END AS Cost_Range
+FROM Hospital.Medicine M
+ORDER BY M.M_COST;
+
+-- 7) Listar todas as medicações que estão prestes a esgotar (quantidade baixa)
+-- Define the object type for a medicine
+CREATE OR REPLACE TYPE MedicineRowNew AS OBJECT (
+  M_NAME VARCHAR2(45),
+  M_QUANTITY NUMBER(38,0)
+);
+
+-- Define the table type for a collection of medicines
+CREATE OR REPLACE TYPE MedicineTableNew IS TABLE OF MedicineRowNew;
+
+-- Create the function to get low stock medicines
+CREATE OR REPLACE FUNCTION LowStockMedicines(threshold IN NUMBER)
+  RETURN MedicineTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT M.M_NAME, M.M_QUANTITY
+    FROM Hospital.Medicine M
+    WHERE M.M_QUANTITY <= threshold
+    ORDER BY M.M_QUANTITY
+  ) LOOP
+    PIPE ROW (MedicineRowNew(rec.M_NAME, rec.M_QUANTITY));
+  END LOOP;
+  RETURN;
+END LowStockMedicines;
+
+-- Example of using the function with a threshold of 10
+SELECT * FROM TABLE(LowStockMedicines(25));
+
+-- 8)
+SELECT SUM(M.M_QUANTITY * M.M_COST) AS Total_Inventory_Cost
+FROM Hospital.Medicine M;
+
+------------------------------------------------------------------------------------------------------------
+
+-- Hospital.Prescription
+
+-- 1)
+-- Listar todas as prescrições para um paciente específico
+CREATE OR REPLACE TYPE PrescriptionRowNew AS OBJECT (
+  IDPRESCRIPTION NUMBER(38,0),
+  PRESCRIPTION_DATE DATE,
+  DOSAGE NUMBER(10,2),
+  IDMEDICINE NUMBER(38,0),
+  IDEPISODE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE PrescriptionTableNew IS TABLE OF PrescriptionRowNew;
+
+CREATE OR REPLACE FUNCTION PrescriptionsForPatient(patient_id IN NUMBER)
+  RETURN PrescriptionTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPRESCRIPTION, p.PRESCRIPTION_DATE, p.DOSAGE, p.IDMEDICINE, p.IDEPISODE
+    FROM Hospital.Prescription p
+    JOIN Hospital.Episode e ON p.IDEPISODE = e.IDEPISODE
+    WHERE e.PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (PrescriptionRowNew(rec.IDPRESCRIPTION, rec.PRESCRIPTION_DATE, rec.DOSAGE, rec.IDMEDICINE, rec.IDEPISODE));
+  END LOOP;
+  RETURN;
+END PrescriptionsForPatient;
+
+SELECT * FROM TABLE(PrescriptionsForPatient(25));
+
+-- 2)
+-- Listar prescrições por medicação
+CREATE OR REPLACE FUNCTION PrescriptionsByMedicine(medicine_id IN NUMBER)
+  RETURN PrescriptionTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPRESCRIPTION, p.PRESCRIPTION_DATE, p.DOSAGE, p.IDMEDICINE, p.IDEPISODE
+    FROM Hospital.Prescription p
+    WHERE p.IDMEDICINE = medicine_id
+  ) LOOP
+    PIPE ROW (PrescriptionRowNew(rec.IDPRESCRIPTION, rec.PRESCRIPTION_DATE, rec.DOSAGE, rec.IDMEDICINE, rec.IDEPISODE));
+  END LOOP;
+  RETURN;
+END PrescriptionsByMedicine;
+
+SELECT * FROM TABLE(PrescriptionsByMedicine(1));
+
+-- 3) 
+-- Listar prescrições por intervalo de datas
+CREATE OR REPLACE FUNCTION PrescriptionsByDateRange(start_date IN DATE, end_date IN DATE)
+  RETURN PrescriptionTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPRESCRIPTION, p.PRESCRIPTION_DATE, p.DOSAGE, p.IDMEDICINE, p.IDEPISODE
+    FROM Hospital.Prescription p
+    WHERE p.PRESCRIPTION_DATE BETWEEN start_date AND end_date
+  ) LOOP
+    PIPE ROW (PrescriptionRow(rec.IDPRESCRIPTION, rec.PRESCRIPTION_DATE, rec.DOSAGE, rec.IDMEDICINE, rec.IDEPISODE));
+  END LOOP;
+  RETURN;
+END PrescriptionsByDateRange;
+
+SELECT * FROM TABLE(PrescriptionsByDateRange(TO_DATE('23.08.16', 'YY.MM.DD'), TO_DATE('23.08.29', 'YY.MM.DD')));
+
+-- 4)
+-- Listar prescrições por médico responsável
+CREATE OR REPLACE FUNCTION PrescriptionsByDoctor(doctor_id IN NUMBER)
+  RETURN PrescriptionTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPRESCRIPTION, p.PRESCRIPTION_DATE, p.DOSAGE, p.IDMEDICINE, p.IDEPISODE
+    FROM Hospital.Prescription p
+    JOIN Hospital.Appointment a ON p.IDEPISODE = a.IDEPISODE
+    WHERE a.IDDOCTOR = doctor_id
+  ) LOOP
+    PIPE ROW (PrescriptionRow(rec.IDPRESCRIPTION, rec.PRESCRIPTION_DATE, rec.DOSAGE, rec.IDMEDICINE, rec.IDEPISODE));
+  END LOOP;
+  RETURN;
+END PrescriptionsByDoctor;
+
+SELECT * FROM TABLE(PrescriptionsByDoctor(1));
+
+------------------------------------------------------------------------------------------------------------
+
+-- Hospital.Room
+
+-- 1)
+-- List all rooms by type
+CREATE OR REPLACE TYPE RoomTypeRow AS OBJECT (
+  IDROOM NUMBER(38,0),
+  ROOM_TYPE VARCHAR2(25),
+  ROOM_COST NUMBER(10,2)
+);
+
+CREATE OR REPLACE TYPE RoomTypeTable IS TABLE OF RoomTypeRow;
+
+CREATE OR REPLACE FUNCTION ListRoomsByType
+  RETURN RoomTypeTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT IDROOM, ROOM_TYPE, ROOM_COST
+    FROM Hospital.Room
+  ) LOOP
+    PIPE ROW (RoomTypeRow(rec.IDROOM, rec.ROOM_TYPE, rec.ROOM_COST));
+  END LOOP;
+  RETURN;
+END ListRoomsByType;
+
+SELECT * FROM TABLE(ListRoomsByType);
+
+-- 2)
+-- List room occupations by date range
+CREATE OR REPLACE TYPE RoomOccupationRow AS OBJECT (
+  IDROOM NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  PATIENT_ID NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE RoomOccupationTable IS TABLE OF RoomOccupationRow;
+
+CREATE OR REPLACE FUNCTION ListRoomOccupationsByDateRange(
+  start_date IN DATE, end_date IN DATE
+) RETURN RoomOccupationTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT r.IDROOM, h.ADMISSION_DATE, h.DISCHARGE_DATE, e.PATIENT_IDPATIENT
+    FROM Hospital.Room r
+    JOIN Hospital.Hospitalization h ON r.IDROOM = h.ROOM_IDROOM
+    JOIN Hospital.Episode e ON h.IDEPISODE = e.IDEPISODE
+    WHERE h.ADMISSION_DATE BETWEEN start_date AND end_date
+    OR h.DISCHARGE_DATE BETWEEN start_date AND end_date
+  ) LOOP
+    PIPE ROW (RoomOccupationRow(rec.IDROOM, rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.PATIENT_IDPATIENT));
+  END LOOP;
+  RETURN;
+END ListRoomOccupationsByDateRange;
+
+SELECT * FROM TABLE(ListRoomOccupationsByDateRange(TO_DATE('19.04.17', 'YY.MM.DD'), TO_DATE( '19.04.20', 'YY.MM.DD')));
+
+-- 3)
+-- List currently occupied rooms
+CREATE OR REPLACE TYPE OccupiedRoomRow AS OBJECT (
+  IDROOM NUMBER(38,0),
+  ROOM_TYPE VARCHAR2(25),
+  ROOM_COST NUMBER(10,2),
+  PATIENT_ID NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE OccupiedRoomTable IS TABLE OF OccupiedRoomRow;
+
+CREATE OR REPLACE FUNCTION ListCurrentlyOccupiedRooms
+  RETURN OccupiedRoomTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT r.IDROOM, r.ROOM_TYPE, r.ROOM_COST, e.PATIENT_IDPATIENT
+    FROM Hospital.Room r
+    JOIN Hospital.Hospitalization h ON r.IDROOM = h.ROOM_IDROOM
+    JOIN Hospital.Episode e ON h.IDEPISODE = e.IDEPISODE
+    WHERE h.DISCHARGE_DATE IS NULL
+  ) LOOP
+    PIPE ROW (OccupiedRoomRow(rec.IDROOM, rec.ROOM_TYPE, rec.ROOM_COST, rec.PATIENT_IDPATIENT));
+  END LOOP;
+  RETURN;
+END ListCurrentlyOccupiedRooms;
+
+SELECT * FROM TABLE(ListCurrentlyOccupiedRooms);
+
+-- 4)
+-- List patients allocated to a specific room
+CREATE OR REPLACE TYPE RoomPatientsRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(45),
+  ROOM_ID NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE RoomPatientsTable IS TABLE OF RoomPatientsRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsInRoom(
+  room_id IN NUMBER
+) RETURN RoomPatientsTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, r.IDROOM
+    FROM Hospital.Patient p
+    JOIN Hospital.Episode e ON p.IDPATIENT = e.PATIENT_IDPATIENT
+    JOIN Hospital.Hospitalization h ON e.IDEPISODE = h.IDEPISODE
+    JOIN Hospital.Room r ON h.ROOM_IDROOM = r.IDROOM
+    WHERE r.IDROOM = room_id
+  ) LOOP
+    PIPE ROW (RoomPatientsRow(rec.IDPATIENT, rec.PATIENT_NAME, rec.IDROOM));
+  END LOOP;
+  RETURN;
+END ListPatientsInRoom;
+
+SELECT * FROM TABLE(ListPatientsInRoom(1));
+
+-- 5)
+-- List All Distinct Room Types and Room Costs Ordered
+CREATE OR REPLACE TYPE DistinctRoomTypeRow AS OBJECT (
+  ROOM_TYPE VARCHAR2(25),
+  ROOM_COST NUMBER(10,2)
+);
+
+CREATE OR REPLACE TYPE DistinctRoomTypeTable IS TABLE OF DistinctRoomTypeRow;
+
+CREATE OR REPLACE FUNCTION ListDistinctRoomTypesAndCosts
+  RETURN DistinctRoomTypeTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT DISTINCT ROOM_TYPE, MIN(ROOM_COST) AS ROOM_COST
+    FROM Hospital.Room
+    GROUP BY ROOM_TYPE
+    ORDER BY ROOM_COST
+  ) LOOP
+    PIPE ROW (DistinctRoomTypeRow(rec.ROOM_TYPE, rec.ROOM_COST));
+  END LOOP;
+  RETURN;
+END ListDistinctRoomTypesAndCosts;
+
+SELECT * FROM TABLE(ListDistinctRoomTypesAndCosts);
+
+------------------------------------------------------------------------------------------------------------
+
+-- Hospital.Hospitalization
+
+-- 1)
+-- List All Hospitalizations for a Specific Patient
+CREATE OR REPLACE TYPE HospitalizationRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_ID NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE HospitalizationTable IS TABLE OF HospitalizationRow;
+
+CREATE OR REPLACE FUNCTION ListHospitalizationsForPatient(
+  patient_id IN NUMBER
+) RETURN HospitalizationTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE
+    FROM Hospital.Hospitalization h
+    JOIN Hospital.Episode e ON h.IDEPISODE = e.IDEPISODE
+    WHERE e.PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (HospitalizationRow(rec.IDEPISODE, rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.ROOM_IDROOM, rec.RESPONSIBLE_NURSE));
+  END LOOP;
+  RETURN;
+END ListHospitalizationsForPatient;
+
+SELECT * FROM TABLE(ListHospitalizationsForPatient(25));
+
+-- 2)
+-- List Hospitalizations by Date Range
+CREATE OR REPLACE TYPE HospitalizationByDateRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_ID NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE HospitalizationByDateTable IS TABLE OF HospitalizationByDateRow;
+
+CREATE OR REPLACE FUNCTION ListHospitalizationsByDateRange(
+  start_date IN DATE, end_date IN DATE
+) RETURN HospitalizationByDateTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT IDEPISODE, ADMISSION_DATE, DISCHARGE_DATE, ROOM_IDROOM, RESPONSIBLE_NURSE
+    FROM Hospital.Hospitalization
+    WHERE ADMISSION_DATE BETWEEN start_date AND end_date
+    OR DISCHARGE_DATE BETWEEN start_date AND end_date
+  ) LOOP
+    PIPE ROW (HospitalizationByDateRow(rec.IDEPISODE, rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.ROOM_IDROOM, rec.RESPONSIBLE_NURSE));
+  END LOOP;
+  RETURN;
+END ListHospitalizationsByDateRange;
+
+SELECT * FROM TABLE(ListHospitalizationsByDateRange(TO_DATE('19.04.17', 'YY.MM.DD'), TO_DATE( '19.04.20', 'YY.MM.DD')));
+
+-- 3)
+-- Listar hospitalizações por tipo de sala.
+CREATE OR REPLACE TYPE HospitalizationByRoomTypeRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_ID NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0),
+  ROOM_TYPE VARCHAR2(25)
+);
+
+CREATE OR REPLACE TYPE HospitalizationByRoomTypeTable IS TABLE OF HospitalizationByRoomTypeRow;
+
+CREATE OR REPLACE FUNCTION ListHospitalizationsByRoomType(
+  room_type IN VARCHAR2
+) RETURN HospitalizationByRoomTypeTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE, r.ROOM_TYPE
+    FROM Hospital.Hospitalization h
+    JOIN Hospital.Room r ON h.ROOM_IDROOM = r.IDROOM
+    WHERE r.ROOM_TYPE = room_type
+  ) LOOP
+    PIPE ROW (HospitalizationByRoomTypeRow(rec.IDEPISODE, rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.ROOM_IDROOM, rec.RESPONSIBLE_NURSE, rec.ROOM_TYPE));
+  END LOOP;
+  RETURN;
+END ListHospitalizationsByRoomType;
+
+SELECT * FROM TABLE(ListHospitalizationsByRoomType('ICU'));
+
+-- 4)
+-- Listar hospitalizações por enfermeira responsável.
+CREATE OR REPLACE TYPE HospitalizationByNurseRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_ID NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0),
+  NURSE_NAME VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE HospitalizationByNurseTable IS TABLE OF HospitalizationByNurseRow;
+
+CREATE OR REPLACE FUNCTION ListHospitalizationsByNurse(
+  nurse_id IN NUMBER
+) RETURN HospitalizationByNurseTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE, 
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS NURSE_NAME
+    FROM Hospital.Hospitalization h
+    JOIN Hospital.Nurse nur ON h.RESPONSIBLE_NURSE = nur.STAFF_EMP_ID
+    JOIN Hospital.Staff s ON nur.STAFF_EMP_ID = s.EMP_ID
+    WHERE h.RESPONSIBLE_NURSE = nurse_id
+  ) LOOP
+    PIPE ROW (HospitalizationByNurseRow(rec.IDEPISODE, rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.ROOM_IDROOM, rec.RESPONSIBLE_NURSE, rec.NURSE_NAME));
+  END LOOP;
+  RETURN;
+END ListHospitalizationsByNurse;
+
+SELECT * FROM TABLE(ListHospitalizationsByNurse(5));
+
+------------------------------------------------------------------------------------------------------------
+
+-- Hospital.Episode:
+
+-- 1)
+-- Listar todos os episódios médicos de um paciente específico.
+CREATE OR REPLACE TYPE EpisodeRowNew AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE EpisodeTableNew IS TABLE OF EpisodeRowNew;
+
+CREATE OR REPLACE FUNCTION ListEpisodesForPatient(
+  patient_id IN NUMBER
+) RETURN EpisodeTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT IDEPISODE, PATIENT_IDPATIENT
+    FROM Hospital.Episode
+    WHERE PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (EpisodeRowNew(rec.IDEPISODE, rec.PATIENT_IDPATIENT));
+  END LOOP;
+  RETURN;
+END ListEpisodesForPatient;
+
+SELECT * FROM TABLE(ListEpisodesForPatient(25));
+
+-- 2)
+-- Listar episódios médicos por tipo de condição.
+CREATE OR REPLACE TYPE EpisodeByConditionRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(50 BYTE),
+  CONDITION VARCHAR2(25 BYTE)
+);
+
+CREATE OR REPLACE TYPE EpisodeByConditionTable IS TABLE OF EpisodeByConditionRow;
+
+CREATE OR REPLACE FUNCTION ListEpisodesByCondition(
+  condition_type IN VARCHAR2
+) RETURN EpisodeByConditionTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT e.IDEPISODE, e.PATIENT_IDPATIENT, p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, mh.CONDITION
+    FROM HOSPITAL.EPISODE e
+    JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    JOIN HOSPITAL.MEDICAL_HISTORY mh ON p.IDPATIENT = mh.IDPATIENT
+    WHERE mh.CONDITION = condition_type
+  ) LOOP
+    PIPE ROW (EpisodeByConditionRow(rec.IDEPISODE, rec.PATIENT_IDPATIENT, rec.PATIENT_NAME, rec.CONDITION));
+  END LOOP;
+  RETURN;
+END ListEpisodesByCondition;
+
+-- Example usage:
+SELECT * FROM TABLE(ListEpisodesByCondition('Diabetes'));
+
+-- 3)
+-- Listar todos os episódios médicos tratados por um médico específico.
+CREATE OR REPLACE TYPE EpisodeByDoctorRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0),
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  QUALIFICATIONS VARCHAR2(50 BYTE)
+);
+
+CREATE OR REPLACE TYPE EpisodeByDoctorTable IS TABLE OF EpisodeByDoctorRow;
+
+CREATE OR REPLACE FUNCTION ListEpisodesByDoctor(
+  doctor_id IN NUMBER
+) RETURN EpisodeByDoctorTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT e.IDEPISODE, e.PATIENT_IDPATIENT, d.EMP_ID AS DOCTOR_ID, 
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, 
+           d.QUALIFICATIONS
+    FROM HOSPITAL.EPISODE e
+    JOIN HOSPITAL.APPOINTMENT a ON e.IDEPISODE = a.IDEPISODE
+    JOIN HOSPITAL.DOCTOR d ON a.IDDOCTOR = d.EMP_ID
+    JOIN HOSPITAL.STAFF s ON d.EMP_ID = s.EMP_ID
+    WHERE d.EMP_ID = doctor_id
+  ) LOOP
+    PIPE ROW (EpisodeByDoctorRow(rec.IDEPISODE, rec.PATIENT_IDPATIENT, rec.DOCTOR_ID, rec.DOCTOR_NAME, rec.QUALIFICATIONS));
+  END LOOP;
+  RETURN;
+END ListEpisodesByDoctor;
+
+-- Example usage:
+SELECT * FROM TABLE(ListEpisodesByDoctor(1));
