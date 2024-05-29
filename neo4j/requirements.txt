@@ -1,2 +1,2 @@
-oracledb >= 2.2.0
+oracledb >= 2.2.1
 neo4j >= 5.20.0
