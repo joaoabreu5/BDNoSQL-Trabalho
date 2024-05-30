@@ -120,7 +120,7 @@ def get_max(current_max : None | int, value : int):
 
 
 def format_exception_message(message, exception):
-    return f'{message}:\n\n\t{exception}'
+    return f'{message}: {exception}'
     
     
 def convert_to_JSON_serializable(obj):
@@ -314,7 +314,7 @@ def migrate_staff(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection
         doctor_obj['emp_lname'] = doctor[2]
         doctor_obj['date_joining'] = doctor[3]
         
-        if doctor[4] != None:
+        if doctor[4] is not None:
             doctor_obj['date_separation'] = doctor[4]
         
         doctor_obj['email'] = doctor[5]
@@ -349,7 +349,7 @@ def migrate_staff(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection
         nurse_obj['emp_lname'] = nurse[2]
         nurse_obj['date_joining'] = nurse[3]
         
-        if nurse[4] != None:
+        if nurse[4] is not None:
             nurse_obj['date_separation'] = nurse[4]
             
         nurse_obj['email'] = nurse[5]
@@ -615,7 +615,7 @@ def main():
     
     args = parser.parse_args()      # Para obter um dicionário: args = vars(parser.parse_args())
     
-    logging.basicConfig(format="[%(asctime)s] - %(levelname)s - line %(lineno)d, in '%(funcName)s' - %(message)s\n\n")
+    logging.basicConfig(format="[%(asctime)s] - %(levelname)s - line %(lineno)d, in '%(funcName)s' - %(message)s\n")
     
     oracle_conn = OracleConnection(args.oracle_host, args.oracle_port, 
                                    args.oracle_user, args.oracle_password, args.oracle_service_name)
