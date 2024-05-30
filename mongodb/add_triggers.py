@@ -146,7 +146,7 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
     
 def create_id_patient_trigger(access_token: str, groupId : str, appId : str, cluster_id : str):
     function_data = {
-        'name': 'id_patientTriggerFunction',
+        'name': 'id_patient_triggerFunction',
         'private': True,
         'source': read_JS_file('id_patient_trigger')
     }

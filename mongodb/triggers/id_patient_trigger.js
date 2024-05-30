@@ -1,7 +1,11 @@
+function stringify(object) {
+    return JSON.stringify(object).replaceAll('"', "'").replaceAll(':', ': ').replaceAll(',', ', ');
+}
+
 exports = async function(changeEvent) {
     try {
         const fullDocument = changeEvent.fullDocument;
-        const docId = changeEvent.documentKey._id
+        const docId = changeEvent.documentKey._id;
 
         const clusterName = 'Cluster0';
         const databaseName = changeEvent.ns.db;
@@ -26,6 +30,8 @@ exports = async function(changeEvent) {
 
             if (!counter || fieldValue > counter.seq) {
                 await countersCollection.updateOne(countersQuery, { $set: { seq: fieldValue } }, { upsert: true });
+                
+                console.log(`Valor do campo 'seq' do contador ${stringify(countersQuery)} atualizado para ${fieldValue}.`);
             }
         }
         else if (operationType !== 'update') {    // operationType === 'insert' || operationType === 'replace'
@@ -41,14 +47,17 @@ exports = async function(changeEvent) {
                 }
             )).seq;
 
-            const patientsCollection = context.services.get(clusterName).db(databaseName).collection(collectionName);
+            console.log(`Valor do campo 'seq' do contador ${stringify(countersQuery)} incrementado para ${newCounterValue}.`);
 
-            await patientsCollection.updateOne({ _id: docId }, { $set: { [fieldName]: newCounterValue } });
+            const documentCollection = context.services.get(clusterName).db(databaseName).collection(collectionName);
+            const documentQuery = { _id: docId };
+
+            await documentCollection.updateOne(documentQuery, { $set: { [fieldName]: newCounterValue } });
+
+            console.log(`Campo '${fieldName}' adicionado ao documento ${stringify(documentQuery)}, com valor igual a ${newCounterValue}.`);
         }
 
-        console.log(`Successfully processed the trigger for '${fieldName}' counter.`);
-        
     } catch (err) {
-        console.error('Failed to process the trigger: ', err.message);
+        console.error('Erro ao executar o trigger: ', err.message);
     }
 };
