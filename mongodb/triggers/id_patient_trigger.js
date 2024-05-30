@@ -12,9 +12,12 @@ exports = async function(changeEvent) {
         const collectionName = changeEvent.ns.coll;
         const fieldName = 'id_patient';
         
-        const countersCollection = context.services.get(clusterName).db(databaseName).collection('counters');
+        const countersCollName = 'counters'
+        const countersCollection = context.services.get(clusterName).db(databaseName).collection(countersCollName);
+        
         const countersQuery = { field: fieldName, col: collectionName };
         
+
         let fieldValue;
         const operationType = changeEvent.operationType;
 
@@ -31,7 +34,7 @@ exports = async function(changeEvent) {
             if (!counter || fieldValue > counter.seq) {
                 await countersCollection.updateOne(countersQuery, { $set: { seq: fieldValue } }, { upsert: true });
                 
-                console.log(`Valor do campo 'seq' do contador ${stringify(countersQuery)} atualizado para ${fieldValue}.`);
+                console.log(`Coleção '${countersCollName}': valor do campo 'seq' do contador ${stringify(countersQuery)} atualizado para ${fieldValue}.`);
             }
         }
         else if (operationType !== 'update') {    // operationType === 'insert' || operationType === 'replace'
@@ -47,14 +50,14 @@ exports = async function(changeEvent) {
                 }
             )).seq;
 
-            console.log(`Valor do campo 'seq' do contador ${stringify(countersQuery)} incrementado para ${newCounterValue}.`);
+            console.log(`Coleção '${countersCollName}': valor do campo 'seq' do contador ${stringify(countersQuery)} incrementado para ${newCounterValue}.`);
 
             const documentCollection = context.services.get(clusterName).db(databaseName).collection(collectionName);
             const documentQuery = { _id: docId };
 
             await documentCollection.updateOne(documentQuery, { $set: { [fieldName]: newCounterValue } });
 
-            console.log(`Campo '${fieldName}' adicionado ao documento ${stringify(documentQuery)}, com valor igual a ${newCounterValue}.`);
+            console.log(`Coleção '${collectionName}': campo '${fieldName}' adicionado ao documento ${stringify(documentQuery)}, com valor igual a ${newCounterValue}.`);
         }
 
     } catch (err) {
