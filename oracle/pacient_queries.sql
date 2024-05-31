@@ -8,6 +8,10 @@
 -- Drop the object type if it exists
 -- DROP TYPE PatientRow;
 
+----------------------------------------------------------------------------------------------------------------------------------------------------
+
+-- SELECTs
+
 -- 1)
 -- All info about Hospital.Patient
 CREATE OR REPLACE TYPE PatientRow AS OBJECT (
@@ -695,3 +699,173 @@ END ListPatientsWithOpticalCoverage;
 
 -- Query to retrieve all patients with optical coverage
 SELECT * FROM TABLE(ListPatientsWithOpticalCoverage);
+
+---------------------------------------------------------------------------------------------------------------
+
+-- INSERTS
+
+-- Insert Pacient
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum IDPATIENT value
+    SELECT COALESCE(MAX(IDPATIENT), 0) INTO max_id FROM HOSPITAL.PATIENT;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE patient_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+/
+
+CREATE OR REPLACE PROCEDURE insert_hospital_patient_new2 (
+    p_patient_fname VARCHAR2,
+    p_patient_lname VARCHAR2,
+    p_blood_type VARCHAR2,
+    p_email VARCHAR2,
+    p_phone VARCHAR2,
+    p_gender VARCHAR2,
+    p_policy_number VARCHAR2,
+    p_birthday VARCHAR2
+) IS
+BEGIN
+    INSERT INTO HOSPITAL.PATIENT (
+        IDPATIENT, PATIENT_FNAME, PATIENT_LNAME, BLOOD_TYPE, EMAIL, PHONE, GENDER, POLICY_NUMBER, BIRTHDAY
+    )
+    VALUES (
+        patient_seq_new.NEXTVAL, p_patient_fname, p_patient_lname, p_blood_type, p_email, p_phone, p_gender, p_policy_number, TO_DATE(p_birthday, 'YY.MM.DD')
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL.PATIENT');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+BEGIN
+    insert_hospital_patient_new2(
+        'Francisco', 'Claudino', 'O+', 'claudino@gmail.com', '123-456-7892', 'Male', 'POL005', '85.07.15'
+    );
+END;
+/
+
+-- Insert Medical_History
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum RECORD_ID value
+    SELECT COALESCE(MAX(RECORD_ID), 0) INTO max_id FROM HOSPITAL.MEDICAL_HISTORY;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE medical_history_seq START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+/
+
+CREATE OR REPLACE PROCEDURE insert_hospital_medical_history_new (
+    p_condition VARCHAR2,
+    p_record_date VARCHAR2,
+    p_idpatient NUMBER
+) IS
+BEGIN
+    INSERT INTO HOSPITAL.MEDICAL_HISTORY (
+        RECORD_ID, CONDITION, RECORD_DATE, IDPATIENT
+    )
+    VALUES (
+        medical_history_seq.NEXTVAL, p_condition, TO_DATE(p_record_date, 'YY.MM.DD'), p_idpatient
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL_MEDICAL_HISTORY');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+BEGIN
+    insert_hospital_medical_history_new(
+        'Diabetes', '24.05.15', 91
+    );
+END;
+/
+
+-- Insert Insurance
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum numeric value for POLICY_NUMBER
+    SELECT COALESCE(MAX(TO_NUMBER(SUBSTR(POLICY_NUMBER, 4))), 0) INTO max_id FROM HOSPITAL.INSURANCE;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE insurance_seq_new START WITH ' || (max_id + 2) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+/
+
+CREATE OR REPLACE PROCEDURE insert_hospital_insurance_new (
+    p_provider VARCHAR2,
+    p_insurance_plan VARCHAR2,
+    p_co_pay NUMBER,
+    p_coverage VARCHAR2,
+    p_maternity CHAR,
+    p_dental CHAR,
+    p_optical CHAR
+) IS
+    v_policy_number VARCHAR2(10);
+BEGIN
+    -- Generate a new POLICY_NUMBER using the sequence
+    v_policy_number := 'POL' || TO_CHAR(insurance_seq_new.NEXTVAL, 'FM000');
+
+    INSERT INTO HOSPITAL.INSURANCE (
+        POLICY_NUMBER, PROVIDER, INSURANCE_PLAN, CO_PAY, COVERAGE, MATERNITY, DENTAL, OPTICAL
+    )
+    VALUES (
+        v_policy_number, p_provider, p_insurance_plan, p_co_pay, p_coverage, p_maternity, p_dental, p_optical
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL_INSURANCE with POLICY_NUMBER ' || v_policy_number);
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+BEGIN
+    insert_hospital_insurance_new(
+        'LLL Insurance', 'Premium Plan', 30, 'Partial Coverage', 'Y', 'Y', 'N'
+    );
+END;
+/
+
+-- Insert EmergencyContact
+CREATE OR REPLACE PROCEDURE insert_emergency_contact_new (
+    p_contact_name VARCHAR2,
+    p_phone VARCHAR2,
+    p_relation VARCHAR2,
+    p_idpatient NUMBER
+) IS
+BEGIN
+    INSERT INTO HOSPITAL.EMERGENCY_CONTACT (
+        CONTACT_NAME, PHONE, RELATION, IDPATIENT
+    )
+    VALUES (
+        p_contact_name, p_phone, p_relation, p_idpatient
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL.EMERGENCY_CONTACT');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM || ' at ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+END;
+/
+
+BEGIN
+    insert_emergency_contact_new(
+        'Afonso Miguel', '444-555-7777', 'Brother', 91
+    );
+END;
+/
+
+---------------------------------------------------------------------------------------------------------------
+
+-- DELETES
+
+
+
+---------------------------------------------------------------------------------------------------------------
+
+-- UPDATES
+
