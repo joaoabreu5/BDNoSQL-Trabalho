@@ -75,10 +75,21 @@ END AllInfoDepartment;
 SELECT * FROM TABLE(AllInfoDepartment(82));
 
 -- 3)
--- ESTA NÃO FAZ MUITO SENTIDO
 -- All info about Hospital.Nurse
 CREATE OR REPLACE TYPE NurseRow AS OBJECT (
-    STAFF_EMP_ID NUMBER(38, 0)
+    EMP_ID NUMBER(38, 0),
+    EMP_FNAME VARCHAR2(45 BYTE),
+    EMP_LNAME VARCHAR2(45 BYTE),
+    DATE_JOINING DATE,
+    DATE_SEPERATION DATE,
+    EMAIL VARCHAR2(50 BYTE),
+    ADDRESS VARCHAR2(50 BYTE),
+    SSN NUMBER(38, 0),
+    IS_ACTIVE_STATUS VARCHAR2(1),
+    IDDEPARTMENT NUMBER(38, 0),
+    DEPT_HEAD    VARCHAR2(45 BYTE),
+    DEPT_NAME    VARCHAR2(45 BYTE),
+    EMP_COUNT    NUMBER(38, 0)
 );
 
 CREATE OR REPLACE TYPE NurseTable IS TABLE OF NurseRow;
@@ -87,11 +98,19 @@ CREATE OR REPLACE FUNCTION AllInfoNurse(emp_id IN NUMBER)
   RETURN NurseTable PIPELINED IS
 BEGIN
   FOR rec IN (
-    SELECT n.staff_emp_id
-    FROM Hospital.Nurse n
+    SELECT s.EMP_ID, s.EMP_FNAME, s.EMP_LNAME, s.DATE_JOINING, s.DATE_SEPERATION,
+           s.EMAIL, s.ADDRESS, s.SSN, s.IS_ACTIVE_STATUS,
+           d.IDDEPARTMENT, d.DEPT_HEAD, d.DEPT_NAME, d.EMP_COUNT
+    FROM Hospital.Staff s
+    LEFT JOIN Hospital.Department d ON s.IDDEPARTMENT = d.IDDEPARTMENT
+    LEFT JOIN Hospital.Nurse n ON s.EMP_ID = n.STAFF_EMP_ID
     WHERE n.STAFF_EMP_ID = emp_id
   ) LOOP
-    PIPE ROW (NurseRow(rec.STAFF_EMP_ID));
+    PIPE ROW (NurseRow(
+      rec.EMP_ID, rec.EMP_FNAME, rec.EMP_LNAME, rec.DATE_JOINING, rec.DATE_SEPERATION,
+      rec.EMAIL, rec.ADDRESS, rec.SSN, rec.IS_ACTIVE_STATUS, rec.IDDEPARTMENT,
+      rec.DEPT_HEAD, rec.DEPT_NAME, rec.EMP_COUNT
+      ));
   END LOOP;
   RETURN;
 END AllInfoNurse;
@@ -102,20 +121,40 @@ SELECT * FROM TABLE(AllInfoNurse(1));
 -- All info about Hospital.Doctor
 CREATE OR REPLACE TYPE DoctorRow AS OBJECT (
     EMP_ID NUMBER(38, 0),
+    EMP_FNAME VARCHAR2(45 BYTE),
+    EMP_LNAME VARCHAR2(45 BYTE),
+    DATE_JOINING DATE,
+    DATE_SEPERATION DATE,
+    EMAIL VARCHAR2(50 BYTE),
+    ADDRESS VARCHAR2(50 BYTE),
+    SSN NUMBER(38, 0),
+    IS_ACTIVE_STATUS VARCHAR2(1),
+    IDDEPARTMENT NUMBER(38, 0),
+    DEPT_HEAD    VARCHAR2(45 BYTE),
+    DEPT_NAME    VARCHAR2(45 BYTE),
+    EMP_COUNT    NUMBER(38, 0),
     QUALIFICATIONS VARCHAR2(45 BYTE)
 );
 
 CREATE OR REPLACE TYPE DoctorTable IS TABLE OF DoctorRow;
 
-CREATE OR REPLACE FUNCTION AllInfoDoctor(emp_id IN NUMBER)
+CREATE OR REPLACE FUNCTION AllInfoDoctor(doctor_id IN NUMBER)
   RETURN DoctorTable PIPELINED IS
 BEGIN
   FOR rec IN (
-    SELECT D.emp_id, D.qualifications
-    FROM Hospital.Doctor d
-    WHERE d.EMP_ID = emp_id
+    SELECT s.EMP_ID, s.EMP_FNAME, s.EMP_LNAME, s.DATE_JOINING, s.DATE_SEPERATION,
+           s.EMAIL, s.ADDRESS, s.SSN, s.IS_ACTIVE_STATUS,
+           d.IDDEPARTMENT, d.DEPT_HEAD, d.DEPT_NAME, d.EMP_COUNT, m.QUALIFICATIONS
+    FROM Hospital.Staff s
+    LEFT JOIN Hospital.Department d ON s.IDDEPARTMENT = d.IDDEPARTMENT
+    LEFT JOIN Hospital.Doctor m ON s.EMP_ID = m.EMP_ID
+    WHERE m.EMP_ID = doctor_id
   ) LOOP
-    PIPE ROW (DoctorRow(rec.EMP_ID, rec.QUALIFICATIONS));
+    PIPE ROW (DoctorRow(
+      rec.EMP_ID, rec.EMP_FNAME, rec.EMP_LNAME, rec.DATE_JOINING, rec.DATE_SEPERATION,
+      rec.EMAIL, rec.ADDRESS, rec.SSN, rec.IS_ACTIVE_STATUS, rec.IDDEPARTMENT,
+      rec.DEPT_HEAD, rec.DEPT_NAME, rec.EMP_COUNT, rec.QUALIFICATIONS
+    ));
   END LOOP;
   RETURN;
 END AllInfoDoctor;
@@ -123,10 +162,21 @@ END AllInfoDoctor;
 SELECT * FROM TABLE(AllInfoDoctor(1));
 
 -- 5)
--- ESTA NÃO FAZ MUITO SENTIDO
 -- All info about Hospital.Technician
 CREATE OR REPLACE TYPE TechnicianRow AS OBJECT (
-    STAFF_EMP_ID NUMBER(38, 0)
+    EMP_ID NUMBER(38, 0),
+    EMP_FNAME VARCHAR2(45 BYTE),
+    EMP_LNAME VARCHAR2(45 BYTE),
+    DATE_JOINING DATE,
+    DATE_SEPERATION DATE,
+    EMAIL VARCHAR2(50 BYTE),
+    ADDRESS VARCHAR2(50 BYTE),
+    SSN NUMBER(38, 0),
+    IS_ACTIVE_STATUS VARCHAR2(1),
+    IDDEPARTMENT NUMBER(38, 0),
+    DEPT_HEAD    VARCHAR2(45 BYTE),
+    DEPT_NAME    VARCHAR2(45 BYTE),
+    EMP_COUNT    NUMBER(38, 0)
 );
 
 CREATE OR REPLACE TYPE TechnicianTable IS TABLE OF TechnicianRow;
@@ -135,11 +185,19 @@ CREATE OR REPLACE FUNCTION AllInfoTechnician(emp_id IN NUMBER)
   RETURN TechnicianTable PIPELINED IS
 BEGIN
   FOR rec IN (
-    SELECT t.staff_emp_id
-    FROM Hospital.Technician t
+    SELECT s.EMP_ID, s.EMP_FNAME, s.EMP_LNAME, s.DATE_JOINING, s.DATE_SEPERATION,
+           s.EMAIL, s.ADDRESS, s.SSN, s.IS_ACTIVE_STATUS,
+           d.IDDEPARTMENT, d.DEPT_HEAD, d.DEPT_NAME, d.EMP_COUNT
+    FROM Hospital.Staff s
+    LEFT JOIN Hospital.Department d ON s.IDDEPARTMENT = d.IDDEPARTMENT
+    LEFT JOIN Hospital.Technician t ON s.EMP_ID = t.STAFF_EMP_ID
     WHERE t.STAFF_EMP_ID = emp_id
   ) LOOP
-    PIPE ROW (TechnicianRow(rec.STAFF_EMP_ID));
+    PIPE ROW (TechnicianRow(
+      rec.EMP_ID, rec.EMP_FNAME, rec.EMP_LNAME, rec.DATE_JOINING, rec.DATE_SEPERATION,
+      rec.EMAIL, rec.ADDRESS, rec.SSN, rec.IS_ACTIVE_STATUS, rec.IDDEPARTMENT,
+      rec.DEPT_HEAD, rec.DEPT_NAME, rec.EMP_COUNT
+    ));
   END LOOP;
   RETURN;
 END AllInfoTechnician;
@@ -147,53 +205,6 @@ END AllInfoTechnician;
 SELECT * FROM TABLE(AllInfoTechnician(1));
 
 -- 6)
--- Combined type for all staff information
--- CREATE OR REPLACE TYPE StaffAllInfoRow AS OBJECT (
---     EMP_ID NUMBER(38, 0),
---     EMP_FNAME VARCHAR2(45 BYTE),
---     EMP_LNAME VARCHAR2(45 BYTE),
---     DATE_JOINING DATE,
---     DATE_SEPERATION DATE,
---     EMAIL VARCHAR2(50 BYTE),
---     ADDRESS VARCHAR2(50 BYTE),
---     SSN NUMBER(38, 0),
---     IDDEPARTMENT NUMBER(38, 0),
---     IS_ACTIVE_STATUS VARCHAR2(1),
---     DEPT_HEAD    VARCHAR2(45 BYTE),
---     DEPT_NAME    VARCHAR2(45 BYTE),
---     EMP_COUNT    NUMBER(38, 0),
---     QUALIFICATIONS VARCHAR2(45 BYTE)
--- );
-
--- CREATE OR REPLACE TYPE StaffAllInfoTable IS TABLE OF StaffAllInfoRow;
-
--- CREATE OR REPLACE FUNCTION AllInfoStaff(emp_id IN NUMBER)
---   RETURN StaffAllInfoTable PIPELINED IS
--- BEGIN
---   FOR rec IN (
---     SELECT s.EMP_ID, s.EMP_FNAME, s.EMP_LNAME, s.DATE_JOINING, s.DATE_SEPERATION,
---            s.EMAIL, s.ADDRESS, s.SSN, s.IS_ACTIVE_STATUS,
---            d.IDDEPARTMENT, d.DEPT_HEAD, d.DEPT_NAME, d.EMP_COUNT,
---            m.QUALIFICATIONS
---     FROM Hospital.Staff s
---     LEFT JOIN Hospital.Department d ON s.IDDEPARTMENT = d.IDDEPARTMENT
---     LEFT JOIN Hospital.Nurse n ON s.EMP_ID = n.STAFF_EMP_ID
---     LEFT JOIN Hospital.Doctor m ON s.EMP_ID = m.EMP_ID
---     LEFT JOIN Hospital.Technician t ON s.EMP_ID = t.STAFF_EMP_ID
---     WHERE s.EMP_ID = emp_id
---   ) LOOP
---     PIPE ROW (StaffAllInfoRow(
---       rec.EMP_ID, rec.EMP_FNAME, rec.EMP_LNAME, rec.DATE_JOINING, rec.DATE_SEPERATION,
---       rec.EMAIL, rec.ADDRESS, rec.SSN, rec.IDDEPARTMENT, rec.IS_ACTIVE_STATUS,
---       rec.DEPT_HEAD, rec.DEPT_NAME, rec.EMP_COUNT, rec.QUALIFICATIONS
---     ));
---   END LOOP;
---   RETURN;
--- END AllInfoStaff;
-
--- SELECT * FROM TABLE(AllInfoStaff(1));
-
--- 7)
 -- Get Staff Members by Date_Joining
 CREATE OR REPLACE FUNCTION AllInfoStaffByDateJoining(date_joining IN DATE)
   RETURN StaffTable PIPELINED IS
@@ -216,7 +227,7 @@ END AllInfoStaffByDateJoining;
 SELECT * FROM TABLE(AllInfoStaffByDateJoining(to_date('18.08.25','RR.MM.DD')));
 
 
--- 8)
+-- 7)
 -- Get Staff Members by Date_Seperation
 CREATE OR REPLACE FUNCTION AllInfoStaffByDateSeperation(date_seperation IN DATE)
   RETURN StaffTable PIPELINED IS
@@ -238,7 +249,7 @@ END AllInfoStaffByDateSeperation;
 -- Query to retrieve staff information for a specific date seperation
 SELECT * FROM TABLE(AllInfoStaffByDateSeperation(to_date('18.08.25','RR.MM.DD')));
 
--- 9)
+-- 8)
 -- Get Staff Members that are active or inactive
 CREATE OR REPLACE FUNCTION AllInfoStaffByStatus(is_active_status IN VARCHAR2)
   RETURN StaffTable PIPELINED IS
@@ -262,37 +273,23 @@ SELECT * FROM TABLE(AllInfoStaffByStatus('Y'));
 -- Query to retrieve staff information for status inactive
 SELECT * FROM TABLE(AllInfoStaffByStatus('N'));
 
--- 10)
+-- 9)
 -- Get the number of Nurses
 SELECT COUNT(*) AS nurse_count FROM Hospital.Nurse;
 
--- 11)
+-- 10)
 -- Get the number of Doctors
 SELECT COUNT(*) AS doctor_count FROM Hospital.Doctor;
 
--- 12)
+-- 11)
 -- Get the number of Technicians
 SELECT COUNT(*) AS technician_count FROM Hospital.Technician;
 
--- 13)
+-- 12)
 -- Get all the diferent qualifications
 SELECT DISTINCT QUALIFICATIONS FROM Hospital.Doctor;
 
--- ALL TOGETHER
-SELECT
-    nurse_count,
-    doctor_count,
-    technician_count,
-    (nurse_count + doctor_count + technician_count) AS total_count
-FROM (
-    SELECT
-        (SELECT COUNT(*) FROM Hospital.Nurse) AS nurse_count,
-        (SELECT COUNT(*) FROM Hospital.Doctor) AS doctor_count,
-        (SELECT COUNT(*) FROM Hospital.Technician) AS technician_count
-    FROM dual
-);
-
--- 14)
+-- 13)
 -- Get all the diferent qualifications for a specific Doctor
 CREATE OR REPLACE TYPE QualificationRow AS OBJECT (
     QUALIFICATIONS VARCHAR2(45 BYTE)
@@ -316,11 +313,12 @@ END GetDoctorQualifications;
 -- Query to retrieve all qualifications from a specific doctor
 SELECT * FROM TABLE(GetDoctorQualifications(1));
 
--- 15)
+
+-- 14)
 -- Get the number of Departments
 SELECT COUNT(*) AS department_count FROM Hospital.Department;
 
--- 16)
+-- 15)
 -- Get the number of Employers per Department
 CREATE OR REPLACE TYPE DepartmentEmployeeCountRow AS OBJECT (
     DEPARTMENT_ID NUMBER,
@@ -344,7 +342,7 @@ END GetEmployeeCountPerDepartment;
 
 SELECT * FROM TABLE(GetEmployeeCountPerDepartment());
 
--- 17)
+-- 16)
 -- Get the number of Nurses per Department
 CREATE OR REPLACE TYPE DepartmentNurseCountRow AS OBJECT (
     DEPARTMENT_ID NUMBER,
@@ -369,7 +367,8 @@ END GetNurseCountPerDepartment;
 
 SELECT * FROM TABLE(GetNurseCountPerDepartment());
 
--- 18)
+
+-- 17)
 -- Get the number of Doctors per Department
 CREATE OR REPLACE TYPE DepartmentDoctorCountRow AS OBJECT (
     DEPARTMENT_ID NUMBER,
@@ -394,7 +393,7 @@ END GetDoctorCountPerDepartment;
 
 SELECT * FROM TABLE(GetDoctorCountPerDepartment());
 
--- 19)
+-- 18)
 -- Get the number of Technicians per Department
 CREATE OR REPLACE TYPE DepartmentTechniciansCountRow AS OBJECT (
     DEPARTMENT_ID NUMBER,
