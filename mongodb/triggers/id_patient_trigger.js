@@ -13,6 +13,7 @@ exports = async function(changeEvent) {
         const fieldName = 'id_patient';
         
         const countersCollName = 'counters'
+        const countersFieldName = 'seq'
         const countersCollection = context.services.get(clusterName).db(databaseName).collection(countersCollName);
         
         const countersQuery = { field: fieldName, col: collectionName };
@@ -29,28 +30,37 @@ exports = async function(changeEvent) {
         }
 
         if (fieldValue) {
-            const counter = await countersCollection.findOne(countersQuery, { seq: 1, _id: 0 });
+            const counter = await countersCollection.findOne(countersQuery, { [countersFieldName]: 1, _id: 0 });
 
-            if (!counter || fieldValue > counter.seq) {
-                await countersCollection.updateOne(countersQuery, { $set: { seq: fieldValue } }, { upsert: true });
+            if (!counter || fieldValue > counter[countersFieldName]) {
+                const oldCounterValue = (await countersCollection.findOneAndUpdate(
+                    countersQuery, 
+                    {
+                        $set: { [countersFieldName]: fieldValue } 
+                    }, 
+                    { 
+                        upsert: true,
+                        projection: { [countersFieldName]: 1, _id: 0 }
+                    }
+                ))[countersFieldName];
                 
-                console.log(`Coleção '${countersCollName}': valor do campo 'seq' do contador ${stringify(countersQuery)} atualizado para ${fieldValue}.`);
+                console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} atualizado de ${oldCounterValue} para ${fieldValue}.`);
             }
         }
         else if (operationType !== 'update') {    // operationType === 'insert' || operationType === 'replace'
             const newCounterValue = (await countersCollection.findOneAndUpdate(
                 countersQuery,
                 {
-                    $inc: { seq: 1 }
+                    $inc: { [countersFieldName]: 1 }
                 },
                 {
                     returnNewDocument: true,
                     upsert: true,
-                    projection: { seq: 1, _id: 0 }
+                    projection: { [countersFieldName]: 1, _id: 0 }
                 }
-            )).seq;
+            ))[countersFieldName];
 
-            console.log(`Coleção '${countersCollName}': valor do campo 'seq' do contador ${stringify(countersQuery)} incrementado para ${newCounterValue}.`);
+            console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} incrementado (em 1 unidade) para ${newCounterValue}.`);
 
             const documentCollection = context.services.get(clusterName).db(databaseName).collection(collectionName);
             const documentQuery = { _id: docId };
