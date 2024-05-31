@@ -141,7 +141,15 @@ def main():
     groupId = args.project_id
     appId = get_appId(access_token, groupId)
     
-    trigger_names = ['id_patient_trigger']
+    trigger_names = [
+        'id_patient_trigger',
+        'medical_history_record_id_trigger',
+        'emp_id_trigger',
+        'bills_id_bill_trigger',
+        'id_episode_trigger',
+        'prescriptions_id_prescription_trigger',
+        'lab_screenings_lab_id_trigger'
+    ]
     
     delete_triggers(access_token, groupId, appId, trigger_names)
     

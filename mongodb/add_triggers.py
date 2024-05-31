@@ -2,6 +2,7 @@ import requests
 import argparse
 import logging
 import inspect
+import jinja2
 import json
 import os
 
@@ -9,12 +10,13 @@ import os
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3
 
 SCRIPT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+TRIGGERS_DIR_PATH = os.path.join(SCRIPT_DIR_PATH, 'triggers')
 
 def read_JS_file(filename : str):
     if not filename.endswith('.js'):
         filename += '.js'
     
-    path = os.path.join(SCRIPT_DIR_PATH, 'triggers', filename)
+    path = os.path.join(TRIGGERS_DIR_PATH, filename)
     
     with open(path, 'r') as js_file:
         return js_file.read()
@@ -142,22 +144,27 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
         response_body_POST_trigger = response_POST_trigger.json()
         
         print_response_error(response_POST_trigger.status_code, response_body_POST_trigger)
+
+
+def create_seq_id_trigger(access_token: str, groupId : str, appId : str, cluster_id : str, cluster_name : str, 
+        database_name: str, collection_name : str, field_name : str, trigger_template : jinja2.Template):
     
+    trigger_name = f'{field_name}_trigger'.replace('.', '_')
+    trigger_code = trigger_template.render(cluster_name_j2_var=cluster_name, field_name_j2_var=field_name)
     
-def create_id_patient_trigger(access_token: str, groupId : str, appId : str, cluster_id : str):
     function_data = {
-        'name': 'id_patient_triggerFunction',
+        'name': f'{trigger_name}_function',
         'private': True,
-        'source': read_JS_file('id_patient_trigger')
+        'source': trigger_code
     }
     
     trigger_data = {
-        'name': 'id_patient_trigger',
+        'name': f'{trigger_name}',
         'type': 'DATABASE',
         'config': {
             'service_id': cluster_id,
-            'database': 'hospital',
-            'collection': 'patients',
+            'database': database_name,
+            'collection': collection_name,
             'operation_types': ['INSERT', 'UPDATE', 'REPLACE']
         }
     }
@@ -165,6 +172,30 @@ def create_id_patient_trigger(access_token: str, groupId : str, appId : str, clu
     create_trigger(access_token, groupId, appId, function_data, trigger_data)
 
 
+def create_triggers(access_token: str, groupId : str, appId : str, cluster_id : str, cluster_name : str):
+    database_name = 'hospital'
+    episodes_coll_name = 'episodes'
+    patients_coll_name = 'patients'
+    staff_coll_name = 'staff'
+    
+    j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=TRIGGERS_DIR_PATH))
+    seq_id_trigger_template = j2_env.get_template('seq_id_trigger.js.j2')
+    
+    seq_id_triggers_coll_field = (
+        (patients_coll_name, 'id_patient'),
+        (patients_coll_name, 'medical_history.record_id'),
+        (staff_coll_name, 'emp_id'),
+        (episodes_coll_name, 'bills.id_bill'),
+        (episodes_coll_name, 'id_episode'),
+        (episodes_coll_name, 'prescriptions.id_prescription'),
+        (episodes_coll_name, 'lab_screenings.lab_id')
+    )
+    
+    for coll_name, field_name in seq_id_triggers_coll_field:
+        create_seq_id_trigger(access_token, groupId, appId, cluster_id, cluster_name, database_name, 
+                              coll_name, field_name, seq_id_trigger_template)
+    
+    
 def main():
     parser = argparse.ArgumentParser()
     
@@ -184,7 +215,7 @@ def main():
     
     cluster_id = get_cluster_id(access_token, groupId, appId, args.cluster_name)
     
-    create_id_patient_trigger(access_token, groupId, appId, cluster_id)
+    create_triggers(access_token, groupId, appId, cluster_id, args.cluster_name)
     
 
 if __name__ == '__main__':

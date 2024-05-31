@@ -7,10 +7,10 @@ exports = async function(changeEvent) {
         const fullDocument = changeEvent.fullDocument;
         const docId = changeEvent.documentKey._id;
 
-        const clusterName = 'Cluster0';
+        const clusterName = '{{ cluster_name_j2_var }}';
         const databaseName = changeEvent.ns.db;
         const collectionName = changeEvent.ns.coll;
-        const fieldName = 'id_patient';
+        const fieldName = '{{ field_name_j2_var }}';
         
         const countersCollName = 'counters'
         const countersFieldName = 'seq'
