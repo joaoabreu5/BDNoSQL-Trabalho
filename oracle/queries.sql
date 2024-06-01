@@ -75,41 +75,7 @@ END GetEpisodesWithPrescriptions;
 
 SELECT * FROM TABLE(GetEpisodesWithPrescriptions(1));
 
--- 3)
--- Find total billing amount for a given episode:
--- SELECT Episode.IDEPISODE, SUM(Bill.TOTAL) AS TotalAmount
--- FROM Episode
--- JOIN Bill ON Episode.IDEPISODE = Bill.IDEPISODE
--- WHERE Episode.IDEPISODE = 2
--- GROUP BY Episode.IDEPISODE;
 
-CREATE OR REPLACE FUNCTION GetTotalBillingForEpisode(p_episode_id IN NUMBER) RETURN VARCHAR2 IS
-  v_room_cost NUMBER;
-  v_test_cost NUMBER;
-  v_other_charges NUMBER;
-  v_total NUMBER;
-  v_result VARCHAR2(4000);  -- Adjust the size as necessary
-BEGIN
-  -- Calculate and gather all billing details
-  SELECT SUM(ROOM_COST), SUM(TEST_COST), SUM(OTHER_CHARGES), SUM(TOTAL)
-  INTO v_room_cost, v_test_cost, v_other_charges, v_total
-  FROM Bill
-  WHERE IDEPISODE = p_episode_id;
-
-  -- Construct the result string
-  v_result := 'Room Cost: ' || NVL(TO_CHAR(v_room_cost), '0') ||
-              ', Test Cost: ' || NVL(TO_CHAR(v_test_cost), '0') ||
-              ', Other Charges: ' || NVL(TO_CHAR(v_other_charges), '0') ||
-              ', Total: ' || NVL(TO_CHAR(v_total), '0');
-
-  -- Return the constructed string
-  RETURN v_result;
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN
-    RETURN 'No billing records found';  -- Return a clear message if no data is found
-END GetTotalBillingForEpisode;
-
-SELECT GetTotalBillingForEpisode(1) AS TotalBilling FROM DUAL;
 
 -- 4)
 -- Get all the info about pacient (view patient only)
