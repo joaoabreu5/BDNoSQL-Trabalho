@@ -212,5 +212,79 @@ SELECT * FROM TABLE(ListEpisodesByDoctor(1));
 -- Listar todas as faturas emitidas por um médico específico.
 -- Listar todas as consultas agendadas para um paciente específico.
 -- Listar consultas baseadas no médico responsável.
--- Listar os Appointment para um dado Medico (por dia)
+-- Listar os Appointment para um dado Medico (por dia)~
+-- Buscar Appointment por data e depois por hora
 
+-- Create the object type for appointment time and patient details
+CREATE OR REPLACE TYPE AppointmentPatientInfoRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  SCHEDULED_ON DATE,
+  APPOINTMENT_TIME VARCHAR2(5 BYTE),
+  PATIENT_ID NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(255 BYTE)
+);
+
+-- Create the table type for appointment time and patient details
+CREATE OR REPLACE TYPE AppointmentPatientInfoTable IS TABLE OF AppointmentPatientInfoRow;
+
+-- Create the function for listing appointment time and patient details
+CREATE OR REPLACE FUNCTION ListAppointmentPatientInfo RETURN AppointmentPatientInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT a.IDEPISODE, a.SCHEDULED_ON, a.APPOINTMENT_TIME, p.IDPATIENT, p.PATIENT_FNAME || p.PATIENT_LNAME AS PATIENT_NAME
+    FROM Hospital.Appointment a
+    JOIN Hospital.Episode e ON a.IDEPISODE = e.IDEPISODE
+    JOIN Hospital.Patient p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+  ) LOOP
+    PIPE ROW (AppointmentPatientInfoRow(
+      rec.IDEPISODE,
+      rec.SCHEDULED_ON,
+      rec.APPOINTMENT_TIME,
+      rec.IDPATIENT,
+      rec.PATIENT_NAME
+    ));
+  END LOOP;
+  RETURN;
+END ListAppointmentPatientInfo;
+/
+
+-- Test the function
+SELECT * FROM TABLE(ListAppointmentPatientInfo);
+
+-- Doctor with More Appointments
+-- Create the object type for doctor appointment count
+CREATE OR REPLACE TYPE DoctorAppointmentCountRow AS OBJECT (
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(255 BYTE),
+  APPOINTMENT_COUNT NUMBER(38,0)
+);
+
+-- Create the table type for doctor appointment count
+CREATE OR REPLACE TYPE DoctorAppointmentCountTable IS TABLE OF DoctorAppointmentCountRow;
+
+-- Create the function to list the doctor with the most appointments
+CREATE OR REPLACE FUNCTION GetDoctorWithMostAppointments RETURN DoctorAppointmentCountTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT d.EMP_ID AS DOCTOR_ID, 
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, 
+           COUNT(a.IDEPISODE) AS APPOINTMENT_COUNT
+    FROM Hospital.Appointment a
+    JOIN Hospital.Doctor d ON a.IDDOCTOR = d.EMP_ID
+    JOIN Hospital.Staff s ON d.EMP_ID = s.EMP_ID
+    GROUP BY d.EMP_ID, s.EMP_FNAME, s.EMP_LNAME
+    ORDER BY APPOINTMENT_COUNT DESC
+    FETCH FIRST 1 ROWS ONLY
+  ) LOOP
+    PIPE ROW (DoctorAppointmentCountRow(
+      rec.DOCTOR_ID,
+      rec.DOCTOR_NAME,
+      rec.APPOINTMENT_COUNT
+    ));
+  END LOOP;
+  RETURN;
+END GetDoctorWithMostAppointments;
+/
+
+-- Test the function
+SELECT * FROM TABLE(GetDoctorWithMostAppointments);

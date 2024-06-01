@@ -627,9 +627,24 @@ SELECT * FROM TABLE(ListHospitalizationsByRoomType('ICU'));
 -- Hospital.Appointment:
 
 -- Listar consultas por intervalo de datas.
--- Recuperar informações completas de uma consulta por ID Episode.
--- Lista de Total de Appointments / Listar ou Numero - Hora e Pacient?!
---
+SELECT 
+    *
+FROM 
+    Hospital.Appointment
+WHERE 
+    SCHEDULED_ON BETWEEN TO_DATE('13.11.20', 'YY.MM.DD') AND TO_DATE('21.05.21', 'YY.MM.DD');
+
+-- Lista de Total de Appointments (Numero) 
+CREATE OR REPLACE FUNCTION GetTotalAppointments RETURN NUMBER IS
+  total_appointments NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO total_appointments FROM Hospital.Appointment;
+  RETURN total_appointments;
+END GetTotalAppointments;
+/
+
+-- Test the function
+SELECT GetTotalAppointments FROM DUAL;
 
 -- Hospital.Bill:
 
@@ -669,9 +684,99 @@ END GetTotalBillingForEpisode;
 
 SELECT GetTotalBillingForEpisode(1) AS TotalBilling FROM DUAL;
 
-
 -- Listar faturas por intervalo de datas.
--- Listar faturas por status de pagamento (ex.: pago, pendente).
+SELECT *
+FROM HOSPITAL.BILL
+WHERE REGISTERED_AT BETWEEN TO_TIMESTAMP('2024-01-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+AND TO_TIMESTAMP('2024-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS');
+
+-- Listar faturas por status de pagamento (ex: pendente).
+-- Criar um tipo de objeto para representar uma linha de fatura
+CREATE OR REPLACE TYPE BillRowNew AS OBJECT (
+  IDBILL NUMBER,
+  ROOM_COST NUMBER,
+  TEST_COST NUMBER,
+  OTHER_CHARGES NUMBER,
+  TOTAL NUMBER,
+  IDEPISODE NUMBER,
+  REGISTERED_AT TIMESTAMP,
+  PAYMENT_STATUS VARCHAR2(10)
+);
+
+-- Criar um tipo de tabela para armazenar múltiplas linhas de fatura
+CREATE OR REPLACE TYPE BillTableNew IS TABLE OF BillRowNew;
+
+-- Criar a função que retorna a tabela de faturas
+CREATE OR REPLACE FUNCTION ListBillsByPaymentStatus(
+  payment_status IN VARCHAR2
+) RETURN BillTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT IDBILL, ROOM_COST, TEST_COST, OTHER_CHARGES, TOTAL, IDEPISODE, REGISTERED_AT, PAYMENT_STATUS
+    FROM HOSPITAL.BILL
+    WHERE PAYMENT_STATUS = payment_status
+  ) LOOP
+    PIPE ROW (BillRowNew(rec.IDBILL, rec.ROOM_COST, rec.TEST_COST, rec.OTHER_CHARGES, rec.TOTAL, rec.IDEPISODE, rec.REGISTERED_AT, rec.PAYMENT_STATUS));
+  END LOOP;
+  RETURN;
+END ListBillsByPaymentStatus;
+/
+
+-- Consulta para testar a função
+SELECT * FROM TABLE(ListBillsByPaymentStatus('Pending'));
+
+-- Custo Total entre Timestamps
+CREATE OR REPLACE FUNCTION GetTotalCostByRegisteredDate(
+  start_date IN TIMESTAMP,
+  end_date IN TIMESTAMP
+) RETURN NUMBER IS
+  total_cost NUMBER := 0;
+BEGIN
+  SELECT COALESCE(SUM(TOTAL), 0)
+  INTO total_cost
+  FROM HOSPITAL.BILL
+  WHERE REGISTERED_AT BETWEEN start_date AND end_date;
+
+  RETURN total_cost;
+END GetTotalCostByRegisteredDate;
+/
+
+-- Testando a função
+SET SERVEROUTPUT ON;
+DECLARE
+  v_total_cost NUMBER;
+BEGIN
+  v_total_cost := GetTotalCostByRegisteredDate(
+    TO_TIMESTAMP('2024-04-27 15:22:34.121765', 'YYYY-MM-DD HH24:MI:SS.FF'),
+    TO_TIMESTAMP('2024-04-27 15:22:34.236851', 'YYYY-MM-DD HH24:MI:SS.FF')
+  );
+  DBMS_OUTPUT.PUT_LINE('Total Cost: ' || v_total_cost);
+END;
+/
+
+-- Sum the total costs of all the bills
+CREATE OR REPLACE FUNCTION GetTotalCostOfAllBills
+RETURN NUMBER IS
+  total_cost NUMBER := 0;
+BEGIN
+  SELECT COALESCE(SUM(TOTAL), 0)
+  INTO total_cost
+  FROM HOSPITAL.BILL;
+
+  RETURN total_cost;
+END GetTotalCostOfAllBills;
+/
+
+-- Testando a função
+SET SERVEROUTPUT ON;
+DECLARE
+  v_total_cost NUMBER;
+BEGIN
+  v_total_cost := GetTotalCostOfAllBills();
+  DBMS_OUTPUT.PUT_LINE('Total Cost of All Bills: ' || v_total_cost);
+END;
+/
+
 
 -- Hospital.Lab_Screening:
 -- Listar exames por intervalo de datas.
