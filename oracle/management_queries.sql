@@ -646,6 +646,8 @@ END GetTotalAppointments;
 -- Test the function
 SELECT GetTotalAppointments FROM DUAL;
 
+------------------------------------------------------------------------------------------------------------
+
 -- Hospital.Bill:
 
 -- 3)
@@ -777,10 +779,20 @@ BEGIN
 END;
 /
 
+------------------------------------------------------------------------------------------------------------
 
 -- Hospital.Lab_Screening:
+
 -- Listar exames por intervalo de datas.
--- Listar testes por custo (crescente)
+SELECT *
+FROM HOSPITAL.LAB_SCREENING
+WHERE TEST_DATE BETWEEN TO_DATE('22.05.24', 'YY.MM.DD') AND TO_DATE('23.09.09', 'YY.MM.DD');
+
+-- Listar testes por custo
+SELECT *
+FROM HOSPITAL.LAB_SCREENING
+ORDER BY TEST_COST ASC;
+
 -- Buscar LabScreening por IDEpisode
 
 ------------------
