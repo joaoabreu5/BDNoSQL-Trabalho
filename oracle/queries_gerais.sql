@@ -1,0 +1,669 @@
+-- 1)
+-- Listar todas as prescrições para um paciente específico
+CREATE OR REPLACE TYPE PrescriptionRowNew AS OBJECT (
+  IDPRESCRIPTION NUMBER(38,0),
+  PRESCRIPTION_DATE DATE,
+  DOSAGE NUMBER(10,2),
+  IDMEDICINE NUMBER(38,0),
+  IDEPISODE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE PrescriptionTableNew IS TABLE OF PrescriptionRowNew;
+
+CREATE OR REPLACE FUNCTION PrescriptionsForPatient(patient_id IN NUMBER)
+  RETURN PrescriptionTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPRESCRIPTION, p.PRESCRIPTION_DATE, p.DOSAGE, p.IDMEDICINE, p.IDEPISODE
+    FROM Hospital.Prescription p
+    JOIN Hospital.Episode e ON p.IDEPISODE = e.IDEPISODE
+    WHERE e.PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (PrescriptionRowNew(rec.IDPRESCRIPTION, rec.PRESCRIPTION_DATE, rec.DOSAGE, rec.IDMEDICINE, rec.IDEPISODE));
+  END LOOP;
+  RETURN;
+END PrescriptionsForPatient;
+
+SELECT * FROM TABLE(PrescriptionsForPatient(25));
+
+-- 2)
+-- Listar os pacientes alocados a um específico quarto
+CREATE OR REPLACE TYPE RoomPatientsRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(45),
+  ROOM_ID NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE RoomPatientsTable IS TABLE OF RoomPatientsRow;
+
+CREATE OR REPLACE FUNCTION ListPatientsInRoom(
+  room_id IN NUMBER
+) RETURN RoomPatientsTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, r.IDROOM
+    FROM Hospital.Patient p
+    JOIN Hospital.Episode e ON p.IDPATIENT = e.PATIENT_IDPATIENT
+    JOIN Hospital.Hospitalization h ON e.IDEPISODE = h.IDEPISODE
+    JOIN Hospital.Room r ON h.ROOM_IDROOM = r.IDROOM
+    WHERE r.IDROOM = room_id
+  ) LOOP
+    PIPE ROW (RoomPatientsRow(rec.IDPATIENT, rec.PATIENT_NAME, rec.IDROOM));
+  END LOOP;
+  RETURN;
+END ListPatientsInRoom;
+
+SELECT * FROM TABLE(ListPatientsInRoom(1));
+
+-- 3)
+-- List All Hospitalizations for a Specific Patient
+CREATE OR REPLACE TYPE HospitalizationRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_ID NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE HospitalizationTable IS TABLE OF HospitalizationRow;
+
+CREATE OR REPLACE FUNCTION ListHospitalizationsForPatient(
+  patient_id IN NUMBER
+) RETURN HospitalizationTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE
+    FROM Hospital.Hospitalization h
+    JOIN Hospital.Episode e ON h.IDEPISODE = e.IDEPISODE
+    WHERE e.PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (HospitalizationRow(rec.IDEPISODE, rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.ROOM_IDROOM, rec.RESPONSIBLE_NURSE));
+  END LOOP;
+  RETURN;
+END ListHospitalizationsForPatient;
+
+SELECT * FROM TABLE(ListHospitalizationsForPatient(25));
+
+-- 4)
+-- Listar hospitalizações por enfermeira responsável.
+CREATE OR REPLACE TYPE HospitalizationByNurseRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_ID NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0),
+  NURSE_NAME VARCHAR2(45)
+);
+
+CREATE OR REPLACE TYPE HospitalizationByNurseTable IS TABLE OF HospitalizationByNurseRow;
+
+CREATE OR REPLACE FUNCTION ListHospitalizationsByNurse(
+  nurse_id IN NUMBER
+) RETURN HospitalizationByNurseTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE, 
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS NURSE_NAME
+    FROM Hospital.Hospitalization h
+    JOIN Hospital.Nurse nur ON h.RESPONSIBLE_NURSE = nur.STAFF_EMP_ID
+    JOIN Hospital.Staff s ON nur.STAFF_EMP_ID = s.EMP_ID
+    WHERE h.RESPONSIBLE_NURSE = nurse_id
+  ) LOOP
+    PIPE ROW (HospitalizationByNurseRow(rec.IDEPISODE, rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.ROOM_IDROOM, rec.RESPONSIBLE_NURSE, rec.NURSE_NAME));
+  END LOOP;
+  RETURN;
+END ListHospitalizationsByNurse;
+
+SELECT * FROM TABLE(ListHospitalizationsByNurse(5));
+
+-- 5)
+-- Listar todos os episódios médicos de um paciente específico.
+CREATE OR REPLACE TYPE EpisodeRowNew AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE EpisodeTableNew IS TABLE OF EpisodeRowNew;
+
+CREATE OR REPLACE FUNCTION ListEpisodesForPatient(
+  patient_id IN NUMBER
+) RETURN EpisodeTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT IDEPISODE, PATIENT_IDPATIENT
+    FROM Hospital.Episode
+    WHERE PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (EpisodeRowNew(rec.IDEPISODE, rec.PATIENT_IDPATIENT));
+  END LOOP;
+  RETURN;
+END ListEpisodesForPatient;
+
+SELECT * FROM TABLE(ListEpisodesForPatient(25));
+
+-- 6)
+-- Listar episódios médicos por tipo de condição.
+CREATE OR REPLACE TYPE EpisodeByConditionRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(50 BYTE),
+  CONDITION VARCHAR2(25 BYTE)
+);
+
+CREATE OR REPLACE TYPE EpisodeByConditionTable IS TABLE OF EpisodeByConditionRow;
+
+CREATE OR REPLACE FUNCTION ListEpisodesByCondition(
+  condition_type IN VARCHAR2
+) RETURN EpisodeByConditionTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT e.IDEPISODE, e.PATIENT_IDPATIENT, p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, mh.CONDITION
+    FROM HOSPITAL.EPISODE e
+    JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    JOIN HOSPITAL.MEDICAL_HISTORY mh ON p.IDPATIENT = mh.IDPATIENT
+    WHERE mh.CONDITION = condition_type
+  ) LOOP
+    PIPE ROW (EpisodeByConditionRow(rec.IDEPISODE, rec.PATIENT_IDPATIENT, rec.PATIENT_NAME, rec.CONDITION));
+  END LOOP;
+  RETURN;
+END ListEpisodesByCondition;
+
+-- Example usage:
+SELECT * FROM TABLE(ListEpisodesByCondition('Diabetes'));
+
+-- 7)
+-- Listar todos os episódios médicos tratados por um médico específico.
+CREATE OR REPLACE TYPE EpisodeByDoctorRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  PATIENT_IDPATIENT NUMBER(38,0),
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  QUALIFICATIONS VARCHAR2(50 BYTE)
+);
+
+CREATE OR REPLACE TYPE EpisodeByDoctorTable IS TABLE OF EpisodeByDoctorRow;
+
+CREATE OR REPLACE FUNCTION ListEpisodesByDoctor(
+  doctor_id IN NUMBER
+) RETURN EpisodeByDoctorTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT e.IDEPISODE, e.PATIENT_IDPATIENT, d.EMP_ID AS DOCTOR_ID, 
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, 
+           d.QUALIFICATIONS
+    FROM HOSPITAL.EPISODE e
+    JOIN HOSPITAL.APPOINTMENT a ON e.IDEPISODE = a.IDEPISODE
+    JOIN HOSPITAL.DOCTOR d ON a.IDDOCTOR = d.EMP_ID
+    JOIN HOSPITAL.STAFF s ON d.EMP_ID = s.EMP_ID
+    WHERE d.EMP_ID = doctor_id
+  ) LOOP
+    PIPE ROW (EpisodeByDoctorRow(rec.IDEPISODE, rec.PATIENT_IDPATIENT, rec.DOCTOR_ID, rec.DOCTOR_NAME, rec.QUALIFICATIONS));
+  END LOOP;
+  RETURN;
+END ListEpisodesByDoctor;
+
+-- Example usage:
+SELECT * FROM TABLE(ListEpisodesByDoctor(1));
+
+
+-- 8)
+-- Listar todos os exames laboratoriais para um paciente específico.
+CREATE OR REPLACE TYPE LabScreeningRow AS OBJECT (
+  LAB_ID NUMBER(38,0),
+  TEST_COST NUMBER(10,2),
+  TEST_DATE DATE,
+  IDTECHNICIAN NUMBER(38,0),
+  EPISODE_ID NUMBER(38,0),
+  PATIENT_ID NUMBER(38,0),
+  TECHNICIAN_NAME VARCHAR2(50 BYTE)
+);
+
+CREATE OR REPLACE TYPE LabScreeningTable IS TABLE OF LabScreeningRow;
+
+CREATE OR REPLACE FUNCTION ListLabScreeningsByPatient(patient_id IN NUMBER)
+    RETURN LabScreeningTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT ls.LAB_ID, ls.TEST_COST, ls.TEST_DATE, ls.IDTECHNICIAN, ls.EPISODE_IDEPISODE AS EPISODE_ID, 
+           e.PATIENT_IDPATIENT AS PATIENT_ID, 
+           t.STAFF_EMP_ID, s.EMP_FNAME || ' ' || s.EMP_LNAME AS TECHNICIAN_NAME
+    FROM HOSPITAL.LAB_SCREENING ls
+    JOIN HOSPITAL.EPISODE e ON ls.EPISODE_IDEPISODE = e.IDEPISODE
+    JOIN HOSPITAL.TECHNICIAN t ON ls.IDTECHNICIAN = t.STAFF_EMP_ID
+    JOIN HOSPITAL.STAFF s ON t.STAFF_EMP_ID = s.EMP_ID
+    WHERE e.PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (LabScreeningRow(
+    rec.LAB_ID, rec.TEST_COST, rec.TEST_DATE, rec.IDTECHNICIAN, rec.EPISODE_ID, rec.PATIENT_ID, rec.TECHNICIAN_NAME
+    ));
+  END LOOP;
+  RETURN;
+END ListLabScreeningsByPatient;
+
+-- Example usage:
+SELECT * FROM TABLE(ListLabScreeningsByPatient(1));
+
+
+-- 9)
+-- Listar exames baseados no técnico responsável.
+CREATE OR REPLACE TYPE LabScreeningDetailsRow AS OBJECT (
+  LAB_ID NUMBER(38,0),
+  TEST_COST NUMBER(10,2),
+  TEST_DATE DATE,
+  IDTECHNICIAN NUMBER(38,0),
+  EPISODE_ID NUMBER(38,0),
+  PATIENT_ID NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(50 BYTE),
+  PATIENT_BLOOD_TYPE VARCHAR2(3 BYTE),
+  PATIENT_GENDER VARCHAR2(10 BYTE),
+  PATIENT_BIRTHDAY DATE,
+  PATIENT_PHONE VARCHAR2(15 BYTE)
+);
+
+CREATE OR REPLACE TYPE LabScreeningDetailsTable IS TABLE OF LabScreeningDetailsRow;
+
+CREATE OR REPLACE FUNCTION ListLabScreeningDetailsByTechnician(technician_id IN NUMBER)
+    RETURN LabScreeningDetailsTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT ls.LAB_ID, ls.TEST_COST, ls.TEST_DATE, ls.IDTECHNICIAN, ls.EPISODE_IDEPISODE AS EPISODE_ID, 
+           e.PATIENT_IDPATIENT AS PATIENT_ID, 
+           p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME,
+           p.BLOOD_TYPE AS PATIENT_BLOOD_TYPE,
+           p.GENDER AS PATIENT_GENDER,
+           p.BIRTHDAY AS PATIENT_BIRTHDAY,
+           p.PHONE AS PATIENT_PHONE
+    FROM HOSPITAL.LAB_SCREENING ls
+    JOIN HOSPITAL.EPISODE e ON ls.EPISODE_IDEPISODE = e.IDEPISODE
+    JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    WHERE ls.IDTECHNICIAN = technician_id
+  ) LOOP
+    PIPE ROW (LabScreeningDetailsRow(
+    rec.LAB_ID, rec.TEST_COST, rec.TEST_DATE, rec.IDTECHNICIAN, rec.EPISODE_ID, rec.PATIENT_ID,
+    rec.PATIENT_NAME, rec.PATIENT_BLOOD_TYPE, rec.PATIENT_GENDER, rec.PATIENT_BIRTHDAY, rec.PATIENT_PHONE
+    ));
+  END LOOP;
+  RETURN;
+END ListLabScreeningDetailsByTechnician;
+
+-- Example usage:
+SELECT * FROM TABLE(ListLabScreeningDetailsByTechnician(1));
+
+
+-- 10)
+-- Listar todas as faturas para um paciente específico.
+CREATE OR REPLACE TYPE BillDetailsRow AS OBJECT (
+  IDBILL NUMBER(38,0),
+  ROOM_COST NUMBER(10,2),
+  TEST_COST NUMBER(10,2),
+  OTHER_CHARGES NUMBER(10,2),
+  TOTAL NUMBER(10,2),
+  REGISTERED_AT DATE,
+  PAYMENT_STATUS VARCHAR2(20 BYTE),
+  IDEPISODE NUMBER(38,0),
+  IDPATIENT NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE BillDetailsTable IS TABLE OF BillDetailsRow;
+
+CREATE OR REPLACE FUNCTION ListBillDetailsByPatient(patient_id IN NUMBER)
+    RETURN BillDetailsTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT b.IDBILL, b.ROOM_COST, b.TEST_COST, b.OTHER_CHARGES, b.TOTAL, 
+           b.REGISTERED_AT, b.PAYMENT_STATUS, b.IDEPISODE AS EPISODE_ID, e.PATIENT_IDPATIENT AS IDPATIENT
+    FROM HOSPITAL.BILL b
+    JOIN HOSPITAL.EPISODE e ON b.IDEPISODE = e.IDEPISODE
+    WHERE e.PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (BillDetailsRow(
+    rec.IDBILL, rec.ROOM_COST, rec.TEST_COST, rec.OTHER_CHARGES, rec.TOTAL,
+    rec.REGISTERED_AT, rec.PAYMENT_STATUS, rec.EPISODE_ID, rec.IDPATIENT
+    ));
+  END LOOP;
+  RETURN;
+END ListBillDetailsByPatient;
+
+-- Example usage:
+SELECT * FROM TABLE(ListBillDetailsByPatient(1));
+
+
+-- 11)
+-- Listar todas as faturas emitidas por um médico específico.
+CREATE OR REPLACE TYPE BillAndAppointmentRow AS OBJECT (
+  IDBILL NUMBER(38,0),
+  ROOM_COST NUMBER(10,2),
+  TEST_COST NUMBER(10,2),
+  OTHER_CHARGES NUMBER(10,2),
+  TOTAL NUMBER(10,2),
+  REGISTERED_AT DATE,
+  PAYMENT_STATUS VARCHAR2(20 BYTE),
+  IDEPISODE NUMBER(38,0),
+  SCHEDULED_ON DATE,
+  APPOINTMENT_DATE DATE,
+  APPOINTMENT_TIME VARCHAR2(8 BYTE),
+  IDDOCTOR NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  PATIENT_ID NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(50 BYTE)
+);
+
+CREATE OR REPLACE TYPE BillAndAppointmentTable IS TABLE OF BillAndAppointmentRow;
+
+CREATE OR REPLACE FUNCTION ListBillAndAppointmentDetailsByDoctor(doctor_id IN NUMBER)
+    RETURN BillAndAppointmentTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT b.IDBILL, b.ROOM_COST, b.TEST_COST, b.OTHER_CHARGES, b.TOTAL, 
+           b.REGISTERED_AT, b.PAYMENT_STATUS, b.IDEPISODE, 
+           a.SCHEDULED_ON, a.APPOINTMENT_DATE, a.APPOINTMENT_TIME, 
+           d.EMP_ID AS DOCTOR_ID, s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME,
+           e.PATIENT_IDPATIENT AS PATIENT_ID, p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME
+    FROM HOSPITAL.BILL b
+    JOIN HOSPITAL.EPISODE e ON b.IDEPISODE = e.IDEPISODE
+    JOIN HOSPITAL.APPOINTMENT a ON e.IDEPISODE = a.IDEPISODE
+    JOIN HOSPITAL.DOCTOR d ON a.IDDOCTOR = d.EMP_ID
+    JOIN HOSPITAL.STAFF s ON d.EMP_ID = s.EMP_ID
+    JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    WHERE d.EMP_ID = doctor_id
+  ) LOOP
+    PIPE ROW (BillAndAppointmentRow(
+    rec.IDBILL, rec.ROOM_COST, rec.TEST_COST, rec.OTHER_CHARGES, rec.TOTAL, rec.REGISTERED_AT,
+    rec.PAYMENT_STATUS, rec.IDEPISODE, rec.SCHEDULED_ON, rec.APPOINTMENT_DATE, rec.APPOINTMENT_TIME,
+    rec.DOCTOR_ID, rec.DOCTOR_NAME, rec.PATIENT_ID, rec.PATIENT_NAME
+    ));
+  END LOOP;
+  RETURN;
+END ListBillAndAppointmentDetailsByDoctor;
+
+-- Example usage:
+SELECT * FROM TABLE(ListBillAndAppointmentDetailsByDoctor(1));
+
+
+-- 12)
+-- Listar todas as consultas agendadas para um paciente específico.
+CREATE OR REPLACE TYPE AppointmentDoctorRow AS OBJECT (
+  SCHEDULED_ON DATE,
+  APPOINTMENT_DATE DATE,
+  APPOINTMENT_TIME VARCHAR2(8 BYTE),
+  IDEPISODE NUMBER(38,0),
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  DOCTOR_QUALIFICATIONS VARCHAR2(50 BYTE)
+);
+
+CREATE OR REPLACE TYPE AppointmentDoctorTable IS TABLE OF AppointmentDoctorRow;
+
+CREATE OR REPLACE FUNCTION ListAppointmentDoctorDetailsByPatient(patient_id IN NUMBER)
+    RETURN AppointmentDoctorTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT a.SCHEDULED_ON, a.APPOINTMENT_DATE, a.APPOINTMENT_TIME, a.IDEPISODE, 
+           d.EMP_ID AS DOCTOR_ID, s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, 
+           d.QUALIFICATIONS AS DOCTOR_QUALIFICATIONS
+    FROM HOSPITAL.APPOINTMENT a
+    JOIN HOSPITAL.EPISODE e ON a.IDEPISODE = e.IDEPISODE
+    JOIN HOSPITAL.DOCTOR d ON a.IDDOCTOR = d.EMP_ID
+    JOIN HOSPITAL.STAFF s ON d.EMP_ID = s.EMP_ID
+    WHERE e.PATIENT_IDPATIENT = patient_id
+  ) LOOP
+    PIPE ROW (AppointmentDoctorRow(
+    rec.SCHEDULED_ON, rec.APPOINTMENT_DATE, rec.APPOINTMENT_TIME, rec.IDEPISODE,
+    rec.DOCTOR_ID, rec.DOCTOR_NAME, rec.DOCTOR_QUALIFICATIONS
+    ));
+  END LOOP;
+  RETURN;
+END ListAppointmentDoctorDetailsByPatient;
+
+-- Example usage:
+SELECT * FROM TABLE(ListAppointmentDoctorDetailsByPatient(1));
+
+
+-- 13)
+-- Listar consultas baseadas no médico responsável.
+CREATE OR REPLACE TYPE AppointmentDoctorStaffRow AS OBJECT (
+  SCHEDULED_ON DATE,
+  APPOINTMENT_DATE DATE,
+  APPOINTMENT_TIME VARCHAR2(8 BYTE),
+  IDEPISODE NUMBER(38,0),
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  DOCTOR_QUALIFICATIONS VARCHAR2(50 BYTE),
+  DOCTOR_EMAIL VARCHAR2(60 BYTE),
+  DOCTOR_ADDRESS VARCHAR2(15 BYTE)
+);
+
+CREATE OR REPLACE TYPE AppointmentDoctorStaffTable IS TABLE OF AppointmentDoctorStaffRow;
+
+CREATE OR REPLACE FUNCTION ListAppointmentDoctorStaffDetailsByDoctor(doctor_id IN NUMBER)
+    RETURN AppointmentDoctorStaffTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT a.SCHEDULED_ON, a.APPOINTMENT_DATE, a.APPOINTMENT_TIME, a.IDEPISODE, 
+           d.EMP_ID AS DOCTOR_ID, s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, 
+           d.QUALIFICATIONS AS DOCTOR_QUALIFICATIONS,
+           s.EMAIL AS DOCTOR_EMAIL, s.ADDRESS AS DOCTOR_ADDRESS
+    FROM HOSPITAL.APPOINTMENT a
+    JOIN HOSPITAL.DOCTOR d ON a.IDDOCTOR = d.EMP_ID
+    JOIN HOSPITAL.STAFF s ON d.EMP_ID = s.EMP_ID
+    WHERE d.EMP_ID = doctor_id
+  ) LOOP
+    PIPE ROW (AppointmentDoctorStaffRow(
+      rec.SCHEDULED_ON, rec.APPOINTMENT_DATE, rec.APPOINTMENT_TIME, rec.IDEPISODE, 
+      rec.DOCTOR_ID, rec.DOCTOR_NAME, rec.DOCTOR_QUALIFICATIONS, rec.DOCTOR_EMAIL,rec.DOCTOR_ADDRESS
+    ));
+  END LOOP;
+  RETURN;
+END ListAppointmentDoctorStaffDetailsByDoctor;
+
+-- Example usage:
+SELECT * FROM TABLE(ListAppointmentDoctorStaffDetailsByDoctor(1));
+
+
+-- 14)
+-- Listar os Appointment para um dado Medico (por dia)
+CREATE OR REPLACE TYPE AppointmentEpisodePatientRow AS OBJECT (
+  SCHEDULED_ON DATE,
+  APPOINTMENT_TIME VARCHAR2(8 BYTE),
+  IDEPISODE NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  PATIENT_NAME VARCHAR2(50 BYTE),
+  PATIENT_BLOOD_TYPE VARCHAR2(3 BYTE),
+  PATIENT_GENDER VARCHAR2(10 BYTE),
+  PATIENT_BIRTHDAY DATE,
+  PATIENT_POLICY_NUMBER VARCHAR2(45 BYTE)
+);
+
+CREATE OR REPLACE TYPE AppointmentEpisodePatientTable IS TABLE OF AppointmentEpisodePatientRow;
+
+CREATE OR REPLACE FUNCTION ListAppointmentEpisodePatientDetails(doctor_id IN NUMBER,appointment_date IN DATE)
+    RETURN AppointmentEpisodePatientTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT a.SCHEDULED_ON, a.APPOINTMENT_TIME, a.IDEPISODE, 
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME,  
+           p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME,
+           p.BLOOD_TYPE AS PATIENT_BLOOD_TYPE,
+           p.GENDER AS PATIENT_GENDER,
+           p.BIRTHDAY AS PATIENT_BIRTHDAY,
+           p.POLICY_NUMBER AS PATIENT_POLICY_NUMBER
+    FROM HOSPITAL.APPOINTMENT a
+    JOIN HOSPITAL.EPISODE e ON a.IDEPISODE = e.IDEPISODE
+    JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    JOIN HOSPITAL.DOCTOR d ON a.IDDOCTOR = d.EMP_ID
+    JOIN HOSPITAL.STAFF s ON d.EMP_ID = s.EMP_ID
+    WHERE d.EMP_ID = doctor_id AND a.APPOINTMENT_DATE = appointment_date
+  ) LOOP
+    PIPE ROW (AppointmentEpisodePatientRow(
+      rec.SCHEDULED_ON, rec.APPOINTMENT_TIME, rec.IDEPISODE, rec.DOCTOR_NAME, rec.PATIENT_NAME,
+      rec.PATIENT_BLOOD_TYPE, rec.PATIENT_GENDER, rec.PATIENT_BIRTHDAY, rec.PATIENT_POLICY_NUMBER
+    ));
+  END LOOP;
+  RETURN;
+END ListAppointmentEpisodePatientDetails;
+
+-- Example usage:
+SELECT * FROM TABLE(ListAppointmentEpisodePatientDetails(1, DATE '2023-06-01'));
+
+
+-- 15)
+-- Buscar Appointment por data
+CREATE OR REPLACE TYPE AppointmentDatePatientRow AS OBJECT (
+  SCHEDULED_ON DATE,
+  APPOINTMENT_TIME VARCHAR2(8 BYTE),
+  IDEPISODE NUMBER(38,0),
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  PATIENT_ID NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(50 BYTE),
+  PATIENT_BLOOD_TYPE VARCHAR2(3 BYTE),
+  PATIENT_GENDER VARCHAR2(10 BYTE),
+  PATIENT_BIRTHDAY DATE,
+  PATIENT_POLICY_NUMBER VARCHAR2(45 BYTE)
+);
+
+CREATE OR REPLACE TYPE AppointmentDatePatientTable IS TABLE OF AppointmentDatePatientRow;
+
+CREATE OR REPLACE FUNCTION ListAppointmentsByDate(appointment_date IN DATE)
+    RETURN AppointmentDatePatientTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT a.SCHEDULED_ON, a.APPOINTMENT_TIME, a.IDEPISODE, a.IDDOCTOR AS DOCTOR_ID,
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, p.IDPATIENT AS PATIENT_ID,
+           p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, p.BLOOD_TYPE AS PATIENT_BLOOD_TYPE,
+           p.GENDER AS PATIENT_GENDER, p.BIRTHDAY AS PATIENT_BIRTHDAY, p.POLICY_NUMBER AS PATIENT_POLICY_NUMBER
+    FROM HOSPITAL.APPOINTMENT a
+    JOIN HOSPITAL.EPISODE e ON a.IDEPISODE = e.IDEPISODE
+    JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    JOIN HOSPITAL.STAFF s ON a.IDDOCTOR = s.EMP_ID
+    WHERE a.APPOINTMENT_DATE = appointment_date
+  ) LOOP
+    PIPE ROW (AppointmentDatePatientRow(
+      rec.SCHEDULED_ON, rec.APPOINTMENT_TIME, rec.IDEPISODE, rec.DOCTOR_ID,rec.DOCTOR_NAME, rec.PATIENT_ID,
+      rec.PATIENT_NAME, rec.PATIENT_BLOOD_TYPE, rec.PATIENT_GENDER, rec.PATIENT_BIRTHDAY, rec.PATIENT_POLICY_NUMBER
+    ));
+  END LOOP;
+  RETURN;
+END ListAppointmentsByDate;
+
+-- Example usage:
+SELECT * FROM TABLE(ListAppointmentsByDate(DATE '2023-06-01'));
+
+
+-- 16)
+-- Buscar Appointment por data e depois por hora
+CREATE OR REPLACE TYPE AppointmentDateTimePatientRow AS OBJECT (
+  SCHEDULED_ON DATE,
+  IDEPISODE NUMBER(38,0),
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(50 BYTE),
+  PATIENT_ID NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(50 BYTE),
+  PATIENT_BLOOD_TYPE VARCHAR2(3 BYTE),
+  PATIENT_GENDER VARCHAR2(10 BYTE),
+  PATIENT_BIRTHDAY DATE,
+  PATIENT_POLICY_NUMBER VARCHAR2(45 BYTE)
+);
+
+CREATE OR REPLACE TYPE AppointmentDateTimePatientTable IS TABLE OF AppointmentDateTimePatientRow;
+
+CREATE OR REPLACE FUNCTION ListAppointmentsByDateTime(appointment_date IN DATE, appointment_time IN VARCHAR2)
+    RETURN AppointmentDateTimePatientTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT a.SCHEDULED_ON, a.IDEPISODE, a.IDDOCTOR AS DOCTOR_ID,
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, p.IDPATIENT AS PATIENT_ID,
+           p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, p.BLOOD_TYPE AS PATIENT_BLOOD_TYPE,
+           p.GENDER AS PATIENT_GENDER, p.BIRTHDAY AS PATIENT_BIRTHDAY, p.POLICY_NUMBER AS PATIENT_POLICY_NUMBER
+    FROM HOSPITAL.APPOINTMENT a
+    JOIN HOSPITAL.EPISODE e ON a.IDEPISODE = e.IDEPISODE
+    JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    JOIN HOSPITAL.STAFF s ON a.IDDOCTOR = s.EMP_ID
+    WHERE a.APPOINTMENT_DATE = appointment_date AND a.APPOINTMENT_TIME = appointment_time
+  ) LOOP
+    PIPE ROW (AppointmentDateTimePatientRow(
+      rec.SCHEDULED_ON, rec.IDEPISODE, rec.DOCTOR_ID,
+      rec.DOCTOR_NAME, rec.PATIENT_ID, rec.PATIENT_NAME, rec.PATIENT_BLOOD_TYPE,
+      rec.PATIENT_GENDER, rec.PATIENT_BIRTHDAY, rec.PATIENT_POLICY_NUMBER
+    ));
+  END LOOP;
+  RETURN;
+END ListAppointmentsByDateTime;
+
+-- Example usage:
+SELECT * FROM TABLE(ListAppointmentsByDateTime(DATE '2023-06-01', '10:00:00'));
+
+
+-- Create the object type for appointment time and patient details
+CREATE OR REPLACE TYPE AppointmentPatientInfoRow AS OBJECT (
+  IDEPISODE NUMBER(38,0),
+  SCHEDULED_ON DATE,
+  APPOINTMENT_TIME VARCHAR2(5 BYTE),
+  PATIENT_ID NUMBER(38,0),
+  PATIENT_NAME VARCHAR2(255 BYTE)
+);
+
+-- Create the table type for appointment time and patient details
+CREATE OR REPLACE TYPE AppointmentPatientInfoTable IS TABLE OF AppointmentPatientInfoRow;
+
+-- Create the function for listing appointment time and patient details
+CREATE OR REPLACE FUNCTION ListAppointmentPatientInfo RETURN AppointmentPatientInfoTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT a.IDEPISODE, a.SCHEDULED_ON, a.APPOINTMENT_TIME, p.IDPATIENT, p.PATIENT_FNAME || p.PATIENT_LNAME AS PATIENT_NAME
+    FROM Hospital.Appointment a
+    JOIN Hospital.Episode e ON a.IDEPISODE = e.IDEPISODE
+    JOIN Hospital.Patient p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+  ) LOOP
+    PIPE ROW (AppointmentPatientInfoRow(
+      rec.IDEPISODE,
+      rec.SCHEDULED_ON,
+      rec.APPOINTMENT_TIME,
+      rec.IDPATIENT,
+      rec.PATIENT_NAME
+    ));
+  END LOOP;
+  RETURN;
+END ListAppointmentPatientInfo;
+/
+
+-- Test the function
+SELECT * FROM TABLE(ListAppointmentPatientInfo);
+
+-- Doctor with More Appointments
+-- Create the object type for doctor appointment count
+CREATE OR REPLACE TYPE DoctorAppointmentCountRow AS OBJECT (
+  DOCTOR_ID NUMBER(38,0),
+  DOCTOR_NAME VARCHAR2(255 BYTE),
+  APPOINTMENT_COUNT NUMBER(38,0)
+);
+
+-- Create the table type for doctor appointment count
+CREATE OR REPLACE TYPE DoctorAppointmentCountTable IS TABLE OF DoctorAppointmentCountRow;
+
+-- Create the function to list the doctor with the most appointments
+CREATE OR REPLACE FUNCTION GetDoctorWithMostAppointments RETURN DoctorAppointmentCountTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT d.EMP_ID AS DOCTOR_ID, 
+           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, 
+           COUNT(a.IDEPISODE) AS APPOINTMENT_COUNT
+    FROM Hospital.Appointment a
+    JOIN Hospital.Doctor d ON a.IDDOCTOR = d.EMP_ID
+    JOIN Hospital.Staff s ON d.EMP_ID = s.EMP_ID
+    GROUP BY d.EMP_ID, s.EMP_FNAME, s.EMP_LNAME
+    ORDER BY APPOINTMENT_COUNT DESC
+    FETCH FIRST 1 ROWS ONLY
+  ) LOOP
+    PIPE ROW (DoctorAppointmentCountRow(
+      rec.DOCTOR_ID,
+      rec.DOCTOR_NAME,
+      rec.APPOINTMENT_COUNT
+    ));
+  END LOOP;
+  RETURN;
+END GetDoctorWithMostAppointments;
+/
+
+-- Test the function
+SELECT * FROM TABLE(GetDoctorWithMostAppointments);
