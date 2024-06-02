@@ -176,7 +176,8 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, cluster
             'service_id': cluster_id,
             'database': database_name,
             'collection': collection_name,
-            'operation_types': ['INSERT', 'UPDATE', 'REPLACE']
+            'operation_types': ['INSERT', 'UPDATE', 'REPLACE'],
+            'tolerate_resume_errors': True
         }
     }
     

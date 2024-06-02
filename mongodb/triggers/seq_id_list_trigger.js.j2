@@ -2,7 +2,6 @@ function stringify(object) {
     return JSON.stringify(object).replaceAll('"', "'").replaceAll(':', ': ').replaceAll(',', ', ');
 }
 
-
 function getMax(max, value) {
     if (max === null || value > max) {
         return value;
@@ -11,7 +10,6 @@ function getMax(max, value) {
         return max;
     }
 }
-
 
 exports = async function(changeEvent) {
     try {
