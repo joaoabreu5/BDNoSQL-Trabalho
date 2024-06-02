@@ -463,7 +463,8 @@ CREATE OR REPLACE TYPE AppointmentEpisodePatientRow AS OBJECT (
   PATIENT_BLOOD_TYPE VARCHAR2(3 BYTE),
   PATIENT_GENDER VARCHAR2(10 BYTE),
   PATIENT_BIRTHDAY DATE,
-  PATIENT_POLICY_NUMBER VARCHAR2(45 BYTE)
+  PATIENT_POLICY_NUMBER VARCHAR2(45 BYTE),
+  PATIENT_CONDITION VARCHAR2(45 BYTE)
 );
 
 CREATE OR REPLACE TYPE AppointmentEpisodePatientTable IS TABLE OF AppointmentEpisodePatientRow;
@@ -478,17 +479,19 @@ BEGIN
            p.BLOOD_TYPE AS PATIENT_BLOOD_TYPE,
            p.GENDER AS PATIENT_GENDER,
            p.BIRTHDAY AS PATIENT_BIRTHDAY,
-           p.POLICY_NUMBER AS PATIENT_POLICY_NUMBER
+           p.POLICY_NUMBER AS PATIENT_POLICY_NUMBER,
+           m.CONDITION AS PATIENT_CONDITION
     FROM HOSPITAL.APPOINTMENT a
     JOIN HOSPITAL.EPISODE e ON a.IDEPISODE = e.IDEPISODE
     JOIN HOSPITAL.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT
     JOIN HOSPITAL.DOCTOR d ON a.IDDOCTOR = d.EMP_ID
     JOIN HOSPITAL.STAFF s ON d.EMP_ID = s.EMP_ID
+    JOIN HOSPITAL.MEDICAL_HISTORY m ON p.IDPATIENT = m.IDPATIENT
     WHERE d.EMP_ID = doctor_id AND a.APPOINTMENT_DATE = appointment_date
   ) LOOP
     PIPE ROW (AppointmentEpisodePatientRow(
       rec.SCHEDULED_ON, rec.APPOINTMENT_TIME, rec.IDEPISODE, rec.DOCTOR_NAME, rec.PATIENT_NAME,
-      rec.PATIENT_BLOOD_TYPE, rec.PATIENT_GENDER, rec.PATIENT_BIRTHDAY, rec.PATIENT_POLICY_NUMBER
+      rec.PATIENT_BLOOD_TYPE, rec.PATIENT_GENDER, rec.PATIENT_BIRTHDAY, rec.PATIENT_POLICY_NUMBER, rec.PATIENT_CONDITION
     ));
   END LOOP;
   RETURN;
@@ -594,25 +597,6 @@ CREATE OR REPLACE TYPE AppointmentPatientInfoRow AS OBJECT (
 
 CREATE OR REPLACE TYPE AppointmentPatientInfoTable IS TABLE OF AppointmentPatientInfoRow;
 
-CREATE OR REPLACE FUNCTION ListAppointmentPatientInfo RETURN AppointmentPatientInfoTable PIPELINED IS
-BEGIN
-  FOR rec IN (
-    SELECT a.IDEPISODE, a.SCHEDULED_ON, a.APPOINTMENT_TIME, p.IDPATIENT, p.PATIENT_FNAME || p.PATIENT_LNAME AS PATIENT_NAME
-    FROM Hospital.Appointment a
-    JOIN Hospital.Episode e ON a.IDEPISODE = e.IDEPISODE
-    JOIN Hospital.Patient p ON e.PATIENT_IDPATIENT = p.IDPATIENT
-  ) LOOP
-    PIPE ROW (AppointmentPatientInfoRow(
-      rec.IDEPISODE,
-      rec.SCHEDULED_ON,
-      rec.APPOINTMENT_TIME,
-      rec.IDPATIENT,
-      rec.PATIENT_NAME
-    ));
-  END LOOP;
-  RETURN;
-END ListAppointmentPatientInfo;
-
 SELECT * FROM TABLE(ListAppointmentPatientInfo);
 
 CREATE OR REPLACE PROCEDURE ListAppointmentPatientInfoProc(result OUT AppointmentPatientInfoTable) IS
@@ -653,35 +637,68 @@ END;
 
 
 -- 18)
--- Lista os médicos com mais consultas
+-- Lista os médicos com mais consultas marcadas, com informação detalhada do paciente
 CREATE OR REPLACE TYPE DoctorAppointmentCountRow AS OBJECT (
   DOCTOR_ID NUMBER(38,0),
   DOCTOR_NAME VARCHAR2(255 BYTE),
-  APPOINTMENT_COUNT NUMBER(38,0)
+  QUALIFICATIONS VARCHAR2(255 BYTE),
+  APPOINTMENT_COUNT NUMBER(38,0),
+  APPOINTMENT_DATE DATE,
+  PATIENT_FULL_NAME VARCHAR2(255 BYTE),
+  PATIENT_BLOOD_TYPE VARCHAR2(3 BYTE),
+  PATIENT_GENDER VARCHAR2(1 BYTE),
+  PATIENT_CONDITION VARCHAR2(255 BYTE)
 );
 
 CREATE OR REPLACE TYPE DoctorAppointmentCountTable IS TABLE OF DoctorAppointmentCountRow;
 
-CREATE OR REPLACE FUNCTION GetDoctorWithMostAppointments RETURN DoctorAppointmentCountTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE GetDoctorWithMostAppointmentsProc(result OUT DoctorAppointmentCountTable) IS
+  doctor_appointments DoctorAppointmentCountTable := DoctorAppointmentCountTable();
 BEGIN
   FOR rec IN (
-    SELECT d.EMP_ID AS DOCTOR_ID, 
-           s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, 
-           COUNT(a.IDEPISODE) AS APPOINTMENT_COUNT
-    FROM Hospital.Appointment a
-    JOIN Hospital.Doctor d ON a.IDDOCTOR = d.EMP_ID
-    JOIN Hospital.Staff s ON d.EMP_ID = s.EMP_ID
-    GROUP BY d.EMP_ID, s.EMP_FNAME, s.EMP_LNAME
-    ORDER BY APPOINTMENT_COUNT DESC
-    FETCH FIRST 1 ROWS ONLY
+    SELECT d.EMP_ID AS DOCTOR_ID, s.EMP_FNAME || ' ' || s.EMP_LNAME AS DOCTOR_NAME, d.QUALIFICATIONS,
+           COUNT(a.APPOINTMENT_DATE) OVER (PARTITION BY d.EMP_ID) AS APPOINTMENT_COUNT, a.APPOINTMENT_DATE,
+           p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_FULL_NAME, 
+           p.BLOOD_TYPE AS PATIENT_BLOOD_TYPE, p.GENDER AS PATIENT_GENDER, m.CONDITION AS PATIENT_CONDITION
+    FROM Admin.Appointment a
+    JOIN Admin.Doctor d ON a.IDDOCTOR = d.EMP_ID
+    JOIN Admin.Staff s ON d.EMP_ID = s.EMP_ID
+    JOIN Admin.Episode e ON a.IDEPISODE = e.IDEPISODE
+    JOIN Admin.Patient p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    JOIN Admin.Medical_History m ON p.IDPATIENT = m.IDPATIENT
+    ORDER BY d.EMP_ID, a.APPOINTMENT_DATE
   ) LOOP
-    PIPE ROW (DoctorAppointmentCountRow(
+    doctor_appointments.EXTEND;
+    doctor_appointments(doctor_appointments.LAST) := DoctorAppointmentCountRow(
       rec.DOCTOR_ID,
       rec.DOCTOR_NAME,
-      rec.APPOINTMENT_COUNT
-    ));
+      rec.QUALIFICATIONS,
+      rec.APPOINTMENT_COUNT,
+      rec.APPOINTMENT_DATE,
+      rec.PATIENT_FULL_NAME,
+      rec.PATIENT_BLOOD_TYPE,
+      rec.PATIENT_GENDER,
+      rec.PATIENT_CONDITION
+    );
   END LOOP;
-  RETURN;
-END GetDoctorWithMostAppointments;
 
-SELECT * FROM TABLE(GetDoctorWithMostAppointments);
+  result := doctor_appointments;
+END GetDoctorWithMostAppointmentsProc;
+
+DECLARE
+  result DoctorAppointmentCountTable;
+BEGIN
+  GetDoctorWithMostAppointmentsProc(result);
+
+  FOR i IN 1 .. result.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('Doctor ID: ' || result(i).DOCTOR_ID || 
+                         ', Doctor Name: ' || result(i).DOCTOR_NAME || 
+                         ', Qualifications: ' || result(i).QUALIFICATIONS || 
+                         ', Appointment Count: ' || result(i).APPOINTMENT_COUNT || 
+                         ', Appointment Date: ' || result(i).APPOINTMENT_DATE ||
+                         ', Patient Full Name: ' || result(i).PATIENT_FULL_NAME || 
+                         ', Blood Type: ' || result(i).PATIENT_BLOOD_TYPE || 
+                         ', Gender: ' || result(i).PATIENT_GENDER || 
+                         ', Condition: ' || result(i).PATIENT_CONDITION);
+  END LOOP;
+END;
