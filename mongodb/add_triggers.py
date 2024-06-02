@@ -71,26 +71,95 @@ def get_access_token(public_key : str, private_key : str):
 
 
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Project-and-Application-IDs
-def get_appId(access_token : str, groupId : str):
-    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
-
+def get_appId(access_token : str, groupId : str, cluster_name : str):
     headers = {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': f'Bearer {access_token}'
     }
     
-    response = requests.get(url, headers=headers)
-    response_body = response.json()
+    # GET Apps list
+    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminListApplications
+    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
     
-    print_response_error(response.status_code, response_body)
+    response_GET_apps_list = requests.get(url, headers=headers)
+    response_body_GET_apps_list = response_GET_apps_list.json()
+    
+    print_response_error(response_GET_apps_list.status_code, response_body_GET_apps_list)
     
     appId = None
-
-    for value in response_body:
-        if 'name' in value and value['name'] == 'Triggers':
+    
+    for value in response_body_GET_apps_list:
+        if 'product' in value and value['product'] == 'atlas':
             appId = value['_id']
             break
+    
+    
+    new_data_source = {
+        'name': cluster_name,
+        'type': 'mongodb-atlas',
+        'config': {
+            'clusterName': cluster_name,
+        }
+    }
+    
+    if appId is None:
+        # POST a new App (of 'atlas' type, for Atlas Triggers)
+        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminCreateApplication
+        url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
         
+        body = {
+            'name': 'Triggers',
+            'data_source': new_data_source
+        }
+        
+        response_POST_app = requests.post(url, headers=headers, data=json.dumps(body))
+        response_body_POST_app = response_POST_app.json()
+        
+        print_response_error(response_POST_app.status_code, response_body_POST_app)
+        
+        appId = response_body_POST_app['_id']
+        
+    else:
+        # GET App configuration
+        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminPullAppConfiguration
+        url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/pull'
+        
+        response_GET_app_config = requests.get(url, headers=headers)
+        
+        if response_GET_app_config.status_code == 200:
+            response_body_GET_app_config = response_GET_app_config.json()
+            
+            cluster_linked = False
+            
+            if 'data_sources' in response_body_GET_app_config:
+                data_sources = response_body_GET_app_config['data_sources']
+                
+                for data_source in data_sources:
+                    if 'config' in data_source:
+                        data_source_config = data_source['config']
+                        
+                        if 'clusterName' in data_source_config and data_source_config['clusterName'] == cluster_name:
+                            cluster_linked = True
+                            break
+            
+                  
+            if cluster_linked is False:
+                data = response_body_GET_app_config
+                data['data_sources'].append(new_data_source)
+                
+                # PATCH new App configuration
+                # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminPushAppConfiguration
+                url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/push'
+                
+                response_PATCH_new_app_config = requests.patch(url, headers=headers, data=json.dumps(data))
+                
+                print_response_error(response_PATCH_new_app_config, '')
+                
+        else:
+            print_response_error(response_GET_app_config.status_code, '')
+    
+    
     return appId
 
 
@@ -225,7 +294,7 @@ def main():
     access_token = get_access_token(args.public_key, args.private_key)
     
     groupId = args.project_id
-    appId = get_appId(access_token, groupId)
+    appId = get_appId(access_token, groupId, args.cluster_name)
     
     cluster_id = get_cluster_id(access_token, groupId, appId, args.cluster_name)
     

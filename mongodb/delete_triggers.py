@@ -72,7 +72,7 @@ def get_appId(access_token : str, groupId : str):
     appId = None
 
     for value in response_body:
-        if 'name' in value and value['name'] == 'Triggers':
+        if 'product' in value and value['product'] == 'atlas':
             appId = value['_id']
             break
         
