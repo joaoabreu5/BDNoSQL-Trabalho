@@ -1,0 +1,135 @@
+function stringify(object) {
+    return JSON.stringify(object).replaceAll('"', "'").replaceAll(':', ': ').replaceAll(',', ', ');
+}
+
+
+function getMax(max, value) {
+    if (max === null || value > max) {
+        return value;
+    }
+    else {
+        return max;
+    }
+}
+
+
+exports = async function(changeEvent) {
+    try {
+        const fullDocument = changeEvent.fullDocument;
+        const docId = changeEvent.documentKey._id;
+
+        const clusterName = '{{ cluster_name_j2_var }}';
+        const databaseName = changeEvent.ns.db;
+        const collectionName = changeEvent.ns.coll;
+        const listName = '{{ list_name_j2_var }}';
+        const objFieldName = '{{ obj_field_name_j2_var }}';
+        
+        const countersCollName = 'counters'
+        const countersFieldName = 'seq'
+        const countersCollection = context.services.get(clusterName).db(databaseName).collection(countersCollName);
+        
+        const countersQuery = { field: `${listName}.${objFieldName}`, col: collectionName };
+        
+
+        let maxFieldValue = null;
+        let fieldsToSetValue = [];
+
+        const operationType = changeEvent.operationType;
+
+        if (operationType === 'update') {
+            const regexObject = new RegExp(`^${listName}\\.\\d+$`);
+            const regexObjectField = new RegExp(`^${listName}\\.\\d+\\.${objFieldName}$`);
+
+            const updatedFields = changeEvent.updateDescription.updatedFields;
+
+            for (field in updatedFields) {
+                let value = updatedFields[field];
+
+                if (regexObject.test(field)) {
+                    if (value[objFieldName]) {
+                        maxFieldValue = getMax(maxFieldValue, value);
+                    }
+                    else {
+                        fieldsToSetValue.push(`${field}.${objFieldName}`);
+                    }
+                }
+                else if (regexObjectField.test(field)) {
+                    maxFieldValue = getMax(maxFieldValue, value);
+                }
+            }
+        }
+        else {    // operationType === 'insert' || operationType === 'replace'
+            const docList = fullDocument[listName];
+
+            if (docList) {
+                for (let i=0; i < docList.length; i++) {
+                    const listObj = docList[i];
+                    const value = listObj[objFieldName];
+
+                    if (value) {
+                        maxFieldValue = getMax(maxFieldValue, value);
+                    }
+                    else {
+                        fieldsToSetValue.push(`${listName}.${i}.${objFieldName}`)
+                    }
+                }
+            }
+        }
+
+
+        const counter = await countersCollection.findOne(countersQuery, { [countersFieldName]: 1, _id: 0 });
+
+        if (maxFieldValue !== null && (!counter || maxFieldValue > counter[countersFieldName])) {
+            const oldCounterValue = (await countersCollection.findOneAndUpdate(
+                countersQuery, 
+                {
+                    $set: { [countersFieldName]: maxFieldValue } 
+                }, 
+                { 
+                    upsert: true,
+                    projection: { [countersFieldName]: 1, _id: 0 }
+                }
+            ))[countersFieldName];
+            
+            console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} atualizado de ${oldCounterValue} para ${maxFieldValue}.`);
+        }
+
+
+        if (fieldsToSetValue.length > 0) {
+            const inc = fieldsToSetValue.length;
+
+            const newCounterValue = (await countersCollection.findOneAndUpdate(
+                countersQuery,
+                {
+                    $inc: { [countersFieldName]: inc }
+                },
+                {
+                    returnNewDocument: true,
+                    upsert: true,
+                    projection: { [countersFieldName]: 1, _id: 0 }
+                }
+            ))[countersFieldName];
+            
+            console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} incrementado (em ${inc} unidades) para ${newCounterValue}.`);
+
+            
+            let setFieldsObj = {};
+            let auxCounterValue = newCounterValue - inc;
+
+            for (field of fieldsToSetValue) {
+                auxCounterValue++;
+                setFieldsObj[field] = auxCounterValue;
+            }
+
+            const documentCollection = context.services.get(clusterName).db(databaseName).collection(collectionName);
+            const documentQuery = { _id: docId };
+
+            await documentCollection.updateOne(documentQuery, { $set: setFieldsObj });
+
+            console.log(`Coleção '${collectionName}': campo(s) e respetivos valor(es) de '${stringify(setFieldsObj)}' adicionado(s) ao documento ${stringify(documentQuery)}`);
+        }
+
+    } catch (err) {
+        console.error('Erro ao executar o trigger: ', err.message);
+    }
+};

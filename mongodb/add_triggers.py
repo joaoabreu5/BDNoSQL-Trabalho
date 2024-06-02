@@ -147,10 +147,21 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
 
 
 def create_seq_id_trigger(access_token: str, groupId : str, appId : str, cluster_id : str, cluster_name : str, 
-        database_name: str, collection_name : str, field_name : str, trigger_template : jinja2.Template):
+        database_name: str, collection_name : str, field_name : str | tuple, trigger_template : jinja2.Template):
     
-    trigger_name = f'{field_name}_trigger'.replace('.', '_')
-    trigger_code = trigger_template.render(cluster_name_j2_var=cluster_name, field_name_j2_var=field_name)
+    if len(field_name) == 1:
+        field_name = field_name[0]
+    
+    if isinstance(field_name, str):
+        trigger_name = f'{field_name}_trigger'
+        trigger_code = trigger_template.render(cluster_name_j2_var=cluster_name, field_name_j2_var=field_name)
+        
+    elif len(field_name) == 2:
+        list_name, list_obj_field_name = field_name
+        
+        trigger_name = f'{list_name}_{list_obj_field_name}_trigger'
+        trigger_code = trigger_template.render(cluster_name_j2_var=cluster_name, 
+                                               list_name_j2_var=list_name, obj_field_name_j2_var=list_obj_field_name)
     
     function_data = {
         'name': f'{trigger_name}_function',
@@ -179,21 +190,23 @@ def create_triggers(access_token: str, groupId : str, appId : str, cluster_id : 
     staff_coll_name = 'staff'
     
     j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=TRIGGERS_DIR_PATH))
+    
     seq_id_trigger_template = j2_env.get_template('seq_id_trigger.js.j2')
+    seq_id_list_trigger_template = j2_env.get_template('seq_id_list_trigger.js.j2')
     
     seq_id_triggers_coll_field = (
-        (patients_coll_name, 'id_patient'),
-        (patients_coll_name, 'medical_history.record_id'),
-        (staff_coll_name, 'emp_id'),
-        (episodes_coll_name, 'bills.id_bill'),
-        (episodes_coll_name, 'id_episode'),
-        (episodes_coll_name, 'prescriptions.id_prescription'),
-        (episodes_coll_name, 'lab_screenings.lab_id')
+        (patients_coll_name, 'id_patient', seq_id_trigger_template),
+        (episodes_coll_name, 'id_episode', seq_id_trigger_template),
+        (staff_coll_name, 'emp_id', seq_id_trigger_template),
+        (patients_coll_name, ('medical_history', 'record_id'), seq_id_list_trigger_template),
+        (episodes_coll_name, ('bills', 'id_bill'), seq_id_list_trigger_template),
+        (episodes_coll_name, ('prescriptions', 'id_prescription'), seq_id_list_trigger_template),
+        (episodes_coll_name, ('lab_screenings', 'lab_id'), seq_id_list_trigger_template)
     )
     
-    for coll_name, field_name in seq_id_triggers_coll_field:
+    for coll_name, field_name, trigger_template in seq_id_triggers_coll_field:
         create_seq_id_trigger(access_token, groupId, appId, cluster_id, cluster_name, database_name, 
-                              coll_name, field_name, seq_id_trigger_template)
+                              coll_name, field_name, trigger_template)
     
     
 def main():
