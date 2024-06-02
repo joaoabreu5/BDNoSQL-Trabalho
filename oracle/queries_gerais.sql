@@ -56,7 +56,7 @@ END ListPatientsInRoom;
 SELECT * FROM TABLE(ListPatientsInRoom(1));
 
 -- 3)
--- List All Hospitalizations for a Specific Patient
+-- Listar todas os internamentos de um determinado paciente
 CREATE OR REPLACE TYPE HospitalizationRow AS OBJECT (
   IDEPISODE NUMBER(38,0),
   ADMISSION_DATE DATE,
@@ -168,7 +168,6 @@ BEGIN
   RETURN;
 END ListEpisodesByCondition;
 
--- Example usage:
 SELECT * FROM TABLE(ListEpisodesByCondition('Diabetes'));
 
 -- 7)
@@ -202,7 +201,6 @@ BEGIN
   RETURN;
 END ListEpisodesByDoctor;
 
--- Example usage:
 SELECT * FROM TABLE(ListEpisodesByDoctor(1));
 
 
@@ -240,7 +238,6 @@ BEGIN
   RETURN;
 END ListLabScreeningsByPatient;
 
--- Example usage:
 SELECT * FROM TABLE(ListLabScreeningsByPatient(1));
 
 
@@ -286,7 +283,6 @@ BEGIN
   RETURN;
 END ListLabScreeningDetailsByTechnician;
 
--- Example usage:
 SELECT * FROM TABLE(ListLabScreeningDetailsByTechnician(1));
 
 
@@ -324,7 +320,6 @@ BEGIN
   RETURN;
 END ListBillDetailsByPatient;
 
--- Example usage:
 SELECT * FROM TABLE(ListBillDetailsByPatient(1));
 
 
@@ -376,7 +371,6 @@ BEGIN
   RETURN;
 END ListBillAndAppointmentDetailsByDoctor;
 
--- Example usage:
 SELECT * FROM TABLE(ListBillAndAppointmentDetailsByDoctor(1));
 
 
@@ -415,7 +409,6 @@ BEGIN
   RETURN;
 END ListAppointmentDoctorDetailsByPatient;
 
--- Example usage:
 SELECT * FROM TABLE(ListAppointmentDoctorDetailsByPatient(1));
 
 
@@ -456,7 +449,6 @@ BEGIN
   RETURN;
 END ListAppointmentDoctorStaffDetailsByDoctor;
 
--- Example usage:
 SELECT * FROM TABLE(ListAppointmentDoctorStaffDetailsByDoctor(1));
 
 
@@ -502,7 +494,6 @@ BEGIN
   RETURN;
 END ListAppointmentEpisodePatientDetails;
 
--- Example usage:
 SELECT * FROM TABLE(ListAppointmentEpisodePatientDetails(1, DATE '2023-06-01'));
 
 
@@ -546,7 +537,6 @@ BEGIN
   RETURN;
 END ListAppointmentsByDate;
 
--- Example usage:
 SELECT * FROM TABLE(ListAppointmentsByDate(DATE '2023-06-01'));
 
 
@@ -590,11 +580,10 @@ BEGIN
   RETURN;
 END ListAppointmentsByDateTime;
 
--- Example usage:
 SELECT * FROM TABLE(ListAppointmentsByDateTime(DATE '2023-06-01', '10:00:00'));
 
-
--- Create the object type for appointment time and patient details
+-- 17)
+-- Lista todos os episódios e o respetivo paciente
 CREATE OR REPLACE TYPE AppointmentPatientInfoRow AS OBJECT (
   IDEPISODE NUMBER(38,0),
   SCHEDULED_ON DATE,
@@ -603,10 +592,8 @@ CREATE OR REPLACE TYPE AppointmentPatientInfoRow AS OBJECT (
   PATIENT_NAME VARCHAR2(255 BYTE)
 );
 
--- Create the table type for appointment time and patient details
 CREATE OR REPLACE TYPE AppointmentPatientInfoTable IS TABLE OF AppointmentPatientInfoRow;
 
--- Create the function for listing appointment time and patient details
 CREATE OR REPLACE FUNCTION ListAppointmentPatientInfo RETURN AppointmentPatientInfoTable PIPELINED IS
 BEGIN
   FOR rec IN (
@@ -625,23 +612,56 @@ BEGIN
   END LOOP;
   RETURN;
 END ListAppointmentPatientInfo;
-/
 
--- Test the function
 SELECT * FROM TABLE(ListAppointmentPatientInfo);
 
--- Doctor with More Appointments
--- Create the object type for doctor appointment count
+CREATE OR REPLACE PROCEDURE ListAppointmentPatientInfoProc(result OUT AppointmentPatientInfoTable) IS
+BEGIN
+  SELECT 
+    AppointmentPatientInfoRow(
+      a.IDEPISODE, 
+      a.SCHEDULED_ON, 
+      a.APPOINTMENT_TIME, 
+      p.IDPATIENT, 
+      p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME
+    )
+  BULK COLLECT INTO result
+  FROM 
+    Admin.APPOINTMENT a
+  JOIN 
+    Admin.EPISODE e ON a.IDEPISODE = e.IDEPISODE
+  JOIN 
+    Admin.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT;
+END ListAppointmentPatientInfoProc;
+
+
+DECLARE
+  result AppointmentPatientInfoTable;
+BEGIN
+  -- Call the procedure
+  ListAppointmentPatientInfoProc(result);
+
+  -- Print the results
+  FOR i IN 1 .. result.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('Episode ID: ' || result(i).IDEPISODE || 
+                         ', Scheduled On: ' || result(i).SCHEDULED_ON || 
+                         ', Time: ' || result(i).APPOINTMENT_TIME || 
+                         ', Patient ID: ' || result(i).PATIENT_ID || 
+                         ', Patient Name: ' || result(i).PATIENT_NAME);
+  END LOOP;
+END;
+
+
+-- 18)
+-- Lista os médicos com mais consultas
 CREATE OR REPLACE TYPE DoctorAppointmentCountRow AS OBJECT (
   DOCTOR_ID NUMBER(38,0),
   DOCTOR_NAME VARCHAR2(255 BYTE),
   APPOINTMENT_COUNT NUMBER(38,0)
 );
 
--- Create the table type for doctor appointment count
 CREATE OR REPLACE TYPE DoctorAppointmentCountTable IS TABLE OF DoctorAppointmentCountRow;
 
--- Create the function to list the doctor with the most appointments
 CREATE OR REPLACE FUNCTION GetDoctorWithMostAppointments RETURN DoctorAppointmentCountTable PIPELINED IS
 BEGIN
   FOR rec IN (
@@ -663,7 +683,5 @@ BEGIN
   END LOOP;
   RETURN;
 END GetDoctorWithMostAppointments;
-/
 
--- Test the function
 SELECT * FROM TABLE(GetDoctorWithMostAppointments);
