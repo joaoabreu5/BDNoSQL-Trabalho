@@ -6,6 +6,7 @@ import json
 
 # Documentation
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2
 
 def print_response_error(status_code : int, body : dict):    
     if 'error' in body:
@@ -53,6 +54,27 @@ def get_access_token(public_key : str, private_key : str):
         access_token = response_body['access_token']
 
     return access_token
+
+
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Projects/operation/getProjectByName
+def get_groupId(public_key : str, private_key : str, groupName : str):
+    url = f'https://cloud.mongodb.com/api/atlas/v2/groups/byName/{groupName}'
+    
+    headers = {
+        'Accept': 'application/vnd.atlas.2024-05-30+json'
+    }
+    
+    response = requests.get(url, auth=requests.auth.HTTPDigestAuth(public_key, private_key), headers=headers)
+    response_body = response.json()
+    
+    print_response_error(response.status_code, response_body)
+    
+    groupId = None
+    
+    if 'id' in response_body:
+        groupId = response_body['id']
+        
+    return groupId
 
 
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Project-and-Application-IDs
@@ -121,7 +143,7 @@ def main():
     
     parser.add_argument('-pubk', '--public-key', help='MongoDB Atlas public key', type=str)
     parser.add_argument('-privk', '--private-key', help='MongoDB Atlas private key', type=str)
-    parser.add_argument('-pid', '--project-id', help='MongoDB Atlas project id', type=str)
+    parser.add_argument('-pn', '--project-name', help='MongoDB Atlas project name', default='BDNoSQL-TP', type=str)
     
     args = parser.parse_args()      # Para obter um dicionário: args = vars(parser.parse_args())
     
@@ -129,7 +151,7 @@ def main():
     
     access_token = get_access_token(args.public_key, args.private_key)
     
-    groupId = args.project_id
+    groupId = get_groupId(args.public_key, args.private_key, args.project_name)
     appId = get_appId(access_token, groupId)
     
     trigger_names = [
