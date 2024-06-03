@@ -44,6 +44,16 @@ def print_response_error(status_code : int, body : dict):
         logger.handle(log_record)
         
 
+def get_data_source_config(cluster_name : str):
+    return {
+        'name': cluster_name,
+        'type': 'mongodb-atlas',
+        'config': {
+            'clusterName': cluster_name,
+        }
+    }
+        
+
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Get-an-Admin-API-Session-Access-Token
 def get_access_token(public_key : str, private_key : str):
     url = 'https://services.cloud.mongodb.com/api/admin/v3.0/auth/providers/mongodb-cloud/login'
@@ -116,15 +126,6 @@ def get_appId(access_token : str, groupId : str, cluster_name : str):
             appId = value['_id']
             break
     
-    
-    new_data_source = {
-        'name': cluster_name,
-        'type': 'mongodb-atlas',
-        'config': {
-            'clusterName': cluster_name,
-        }
-    }
-    
     if appId is None:
         # POST a new App (of 'atlas' type, for Atlas Triggers)
         # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminCreateApplication
@@ -132,7 +133,7 @@ def get_appId(access_token : str, groupId : str, cluster_name : str):
         
         body = {
             'name': 'Triggers',
-            'data_source': new_data_source
+            'data_source': get_data_source_config(cluster_name)
         }
         
         response_POST_app = requests.post(url, headers=headers, data=json.dumps(body))
@@ -141,72 +142,73 @@ def get_appId(access_token : str, groupId : str, cluster_name : str):
         print_response_error(response_POST_app.status_code, response_body_POST_app)
         
         appId = response_body_POST_app['_id']
-        
-    else:
-        # GET App configuration
-        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminPullAppConfiguration
-        url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/pull'
-        
-        response_GET_app_config = requests.get(url, headers=headers)
-        
-        if response_GET_app_config.status_code == 200:
-            response_body_GET_app_config = response_GET_app_config.json()
-            
-            cluster_linked = False
-            
-            if 'data_sources' in response_body_GET_app_config:
-                data_sources = response_body_GET_app_config['data_sources']
-                
-                for data_source in data_sources:
-                    if 'config' in data_source:
-                        data_source_config = data_source['config']
-                        
-                        if 'clusterName' in data_source_config and data_source_config['clusterName'] == cluster_name:
-                            cluster_linked = True
-                            break
-            
-                  
-            if cluster_linked is False:
-                data = response_body_GET_app_config
-                data['data_sources'].append(new_data_source)
-                
-                # PATCH new App configuration
-                # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminPushAppConfiguration
-                url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/push'
-                
-                response_PATCH_new_app_config = requests.patch(url, headers=headers, data=json.dumps(data))
-                
-                print_response_error(response_PATCH_new_app_config, '')
-                
-        else:
-            print_response_error(response_GET_app_config.status_code, '')
     
     
     return appId
 
 
-# https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/services/operation/adminListServices
-def get_cluster_id(access_token : str, groupId : str, appId : str, cluster_name : str):
-    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/services'
-
+def get_service_id(access_token : str, groupId : str, appId : str, cluster_name : str):
     headers = {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': f'Bearer {access_token}'
     }
-
-    response = requests.get(url, headers=headers)
-    response_body = response.json()
-    
-    print_response_error(response.status_code, response_body)
-
-    cluster_id = None
-
-    for value in response_body:
-        if 'name' in value and value['name'] == cluster_name:
-            cluster_id = value['_id']
-            break
         
-    return cluster_id
+    service_id = None
+    
+    # GET App configuration
+    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminPullAppConfiguration
+    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/pull'
+    
+    response_GET_app_config = requests.get(url, headers=headers)
+    
+    if response_GET_app_config.status_code == 200:
+        response_body_GET_app_config = response_GET_app_config.json()
+        
+        data_sources = response_body_GET_app_config['data_sources']
+        
+        data_source_name = None
+        
+        for data_source in data_sources:
+            if data_source['config']['clusterName'] == cluster_name:
+                data_source_name = data_source['name']
+                break
+        
+        
+        if data_source_name is not None:
+            # GET list of data sources
+            # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/services/operation/adminListServices
+            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/services'
+            
+            response_GET_list_data_sources = requests.get(url, headers=headers)
+            response_body_GET_list_data_sources = response_GET_list_data_sources.json()
+                
+            print_response_error(response_GET_list_data_sources.status_code, response_body_GET_list_data_sources)
+            
+            for value in response_body_GET_list_data_sources:
+                if 'name' in value and value['name'] == data_source_name:
+                    service_id = value['_id']
+                    break
+            
+        else:
+            # POST data source
+            # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/services/operation/adminCreateService
+            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/services'
+            
+            data = get_data_source_config(cluster_name)
+            
+            response_POST_data_source = requests.post(url, headers=headers, data=json.dumps(data))
+            response_body_POST_data_source = response_POST_data_source.json()
+            
+            print_response_error(response_POST_data_source.status_code, {})
+            
+            service_id = response_body_POST_data_source['_id']
+            
+    else:
+        print_response_error(response_GET_app_config.status_code, {})
+    
+    
+    return service_id
 
 
 def create_trigger(access_token: str, groupId : str, appId : str, function_data : dict, trigger_data : dict):
@@ -237,7 +239,7 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
         print_response_error(response_POST_trigger.status_code, response_body_POST_trigger)
 
 
-def create_seq_id_trigger(access_token: str, groupId : str, appId : str, cluster_id : str, cluster_name : str, 
+def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service_id : str, cluster_name : str, 
         database_name: str, collection_name : str, field_name : str | tuple, trigger_template : jinja2.Template):
     
     if len(field_name) == 1:
@@ -264,7 +266,7 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, cluster
         'name': f'{trigger_name}',
         'type': 'DATABASE',
         'config': {
-            'service_id': cluster_id,
+            'service_id': service_id,
             'database': database_name,
             'collection': collection_name,
             'operation_types': ['INSERT', 'UPDATE', 'REPLACE'],
@@ -275,7 +277,7 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, cluster
     create_trigger(access_token, groupId, appId, function_data, trigger_data)
 
 
-def create_triggers(access_token: str, groupId : str, appId : str, cluster_id : str, cluster_name : str):
+def create_triggers(access_token: str, groupId : str, appId : str, service_id : str, cluster_name : str):
     database_name = 'hospital'
     episodes_coll_name = 'episodes'
     patients_coll_name = 'patients'
@@ -297,7 +299,7 @@ def create_triggers(access_token: str, groupId : str, appId : str, cluster_id : 
     )
     
     for coll_name, field_name, trigger_template in seq_id_triggers_coll_field:
-        create_seq_id_trigger(access_token, groupId, appId, cluster_id, cluster_name, database_name, 
+        create_seq_id_trigger(access_token, groupId, appId, service_id, cluster_name, database_name, 
                               coll_name, field_name, trigger_template)
     
     
@@ -318,9 +320,9 @@ def main():
     groupId = get_groupId(args.public_key, args.private_key, args.project_name)
     appId = get_appId(access_token, groupId, args.cluster_name)
     
-    cluster_id = get_cluster_id(access_token, groupId, appId, args.cluster_name)
+    service_id = get_service_id(access_token, groupId, appId, args.cluster_name)
     
-    create_triggers(access_token, groupId, appId, cluster_id, args.cluster_name)
+    create_triggers(access_token, groupId, appId, service_id, args.cluster_name)
     
 
 if __name__ == '__main__':
