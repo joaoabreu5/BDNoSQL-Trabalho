@@ -166,7 +166,7 @@ def get_appId(access_token : str, groupId : str, cluster_name : str) -> str | No
     return appId
 
 
-def get_service_id(access_token : str, groupId : str, appId : str, cluster_name : str) -> str | None:
+def get_service_id_and_name(access_token : str, groupId : str, appId : str, cluster_name : str) -> tuple[str | None, str | None]:
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -174,6 +174,7 @@ def get_service_id(access_token : str, groupId : str, appId : str, cluster_name 
     }
         
     service_id = None
+    service_name = None
     
     # GET App configuration
     # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminPullAppConfiguration
@@ -185,16 +186,15 @@ def get_service_id(access_token : str, groupId : str, appId : str, cluster_name 
     if success_GET_app_config:
         response_body_GET_app_config = response_GET_app_config.json()
         
-        data_source_name = None
         data_sources = response_body_GET_app_config['data_sources']
         
         for data_source in data_sources:
             if data_source['config']['clusterName'] == cluster_name:
-                data_source_name = data_source['name']
+                service_name = data_source['name']
                 break
         
         
-        if data_source_name is not None:
+        if service_name is not None:
             # GET list of data sources
             # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/services/operation/adminListServices
             url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/services'
@@ -206,10 +206,9 @@ def get_service_id(access_token : str, groupId : str, appId : str, cluster_name 
                 response_body_GET_list_data_sources = response_GET_list_data_sources.json()
                             
                 for value in response_body_GET_list_data_sources:
-                    if 'name' in value and value['name'] == data_source_name:
+                    if 'name' in value and value['name'] == service_name:
                         service_id = value['_id']
-                        break
-            
+                        break  
         else:
             # POST data source
             # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/services/operation/adminCreateService
@@ -224,9 +223,10 @@ def get_service_id(access_token : str, groupId : str, appId : str, cluster_name 
                 response_body_POST = response_POST.json()
                 
                 service_id = response_body_POST['_id']
+                service_name = response_body_POST['name']
     
     
-    return service_id
+    return service_id, service_name
 
 
 def create_trigger(access_token: str, groupId : str, appId : str, function_data : dict, trigger_data : dict):
@@ -257,7 +257,7 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
             check_response_status(response_POST_trigger, 201)
 
 
-def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service_id : str, cluster_name : str, 
+def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, 
         database_name: str, collection_name : str, field_name : str | tuple, trigger_template : jinja2.Template):
     
     if len(field_name) == 1:
@@ -265,13 +265,13 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
     
     if isinstance(field_name, str):
         trigger_name = f'{field_name}_trigger'
-        trigger_code = trigger_template.render(cluster_name_j2_var=cluster_name, field_name_j2_var=field_name)
+        trigger_code = trigger_template.render(service_name_j2_var=service_name, field_name_j2_var=field_name)
         
     elif len(field_name) == 2:
         list_name, list_obj_field_name = field_name
         
         trigger_name = f'{list_name}_{list_obj_field_name}_trigger'
-        trigger_code = trigger_template.render(cluster_name_j2_var=cluster_name, 
+        trigger_code = trigger_template.render(service_name_j2_var=service_name, 
                                                list_name_j2_var=list_name, obj_field_name_j2_var=list_obj_field_name)
     
     function_data = {
@@ -295,7 +295,7 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
     create_trigger(access_token, groupId, appId, function_data, trigger_data)
 
 
-def create_triggers(access_token: str, groupId : str, appId : str, service_id : str, cluster_name : str):
+def create_triggers(access_token: str, groupId : str, appId : str, service_id : str, service_name : str):
     database_name = 'hospital'
     episodes_coll_name = 'episodes'
     patients_coll_name = 'patients'
@@ -317,7 +317,7 @@ def create_triggers(access_token: str, groupId : str, appId : str, service_id : 
     )
     
     for coll_name, field_name, trigger_template in seq_id_triggers_coll_field:
-        create_seq_id_trigger(access_token, groupId, appId, service_id, cluster_name, database_name, 
+        create_seq_id_trigger(access_token, groupId, appId, service_id, service_name, database_name, 
                               coll_name, field_name, trigger_template)
     
     
@@ -338,9 +338,9 @@ def main():
     groupId = get_groupId(args.public_key, args.private_key, args.project_name)
     appId = get_appId(access_token, groupId, args.cluster_name)
     
-    service_id = get_service_id(access_token, groupId, appId, args.cluster_name)
+    service_id, service_name = get_service_id_and_name(access_token, groupId, appId, args.cluster_name)
     
-    create_triggers(access_token, groupId, appId, service_id, args.cluster_name)
+    create_triggers(access_token, groupId, appId, service_id, service_name)
     
 
 if __name__ == '__main__':

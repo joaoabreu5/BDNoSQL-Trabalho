@@ -7,14 +7,14 @@ exports = async function(changeEvent) {
         const fullDocument = changeEvent.fullDocument;
         const docId = changeEvent.documentKey._id;
 
-        const clusterName = '{{ cluster_name_j2_var }}';
+        const serviceName = '{{ service_name_j2_var }}';
         const databaseName = changeEvent.ns.db;
         const collectionName = changeEvent.ns.coll;
         const fieldName = '{{ field_name_j2_var }}';
         
         const countersCollName = 'counters'
         const countersFieldName = 'seq'
-        const countersCollection = context.services.get(clusterName).db(databaseName).collection(countersCollName);
+        const countersCollection = context.services.get(serviceName).db(databaseName).collection(countersCollName);
         
         const countersQuery = { field: fieldName, col: collectionName };
         
@@ -62,7 +62,7 @@ exports = async function(changeEvent) {
 
             console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} incrementado (em 1 unidade) para ${newCounterValue}.`);
 
-            const documentCollection = context.services.get(clusterName).db(databaseName).collection(collectionName);
+            const documentCollection = context.services.get(serviceName).db(databaseName).collection(collectionName);
             const documentQuery = { _id: docId };
 
             await documentCollection.updateOne(documentQuery, { $set: { [fieldName]: newCounterValue } });
