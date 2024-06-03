@@ -23,10 +23,23 @@ def read_JS_file(filename : str):
         return js_file.read()
 
 
-def print_response_error(status_code : int, body : dict):    
-    if 'error' in body:
+def check_response_status(response: requests.Response, success_code : int):
+    status_code = response.status_code
+    success = True
+        
+    if status_code != success_code:
+        success = False
+        
         frame = inspect.currentframe().f_back
         caller_info = inspect.getframeinfo(frame)
+        
+        try:
+            response_body = response.json()
+        except Exception:
+            if response.text == '':
+                response_body = response.content
+            else:
+                response_body = response.text
         
         logger = logging.getLogger()
         
@@ -36,13 +49,15 @@ def print_response_error(status_code : int, body : dict):
             pathname=caller_info.filename,
             lineno=caller_info.lineno,
             func=caller_info.function,
-            msg=f'Response Status Code: {status_code}\nResponse Body: {body}',
+            msg=f'Response Status Code: {status_code}\nResponse Body: {response_body}',
             args=None,
             exc_info=None
         )
         
         logger.handle(log_record)
-        
+    
+    return success
+
 
 def get_data_source_config(cluster_name : str):
     return {
@@ -55,7 +70,7 @@ def get_data_source_config(cluster_name : str):
         
 
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Get-an-Admin-API-Session-Access-Token
-def get_access_token(public_key : str, private_key : str):
+def get_access_token(public_key : str, private_key : str) -> str | None:
     url = 'https://services.cloud.mongodb.com/api/admin/v3.0/auth/providers/mongodb-cloud/login'
 
     headers = {
@@ -68,86 +83,90 @@ def get_access_token(public_key : str, private_key : str):
         'apiKey': private_key       # <Private API Key>
     }
     
-    response = requests.post(url, headers=headers, data=json.dumps(body))
-    response_body = response.json()
-    
-    print_response_error(response.status_code, response_body)
-    
     access_token = None
     
-    if 'access_token' in response_body:
-        access_token = response_body['access_token']
+    response = requests.post(url, headers=headers, data=json.dumps(body))
+    success = check_response_status(response, 200)
+    
+    if success:
+        response_body = response.json()
+        
+        if 'access_token' in response_body:
+            access_token = response_body['access_token']
 
     return access_token
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Projects/operation/getProjectByName
-def get_groupId(public_key : str, private_key : str, groupName : str):
+def get_groupId(public_key : str, private_key : str, groupName : str) -> str | None:
     url = f'https://cloud.mongodb.com/api/atlas/v2/groups/byName/{groupName}'
     
     headers = {
         'Accept': 'application/vnd.atlas.2024-05-30+json'
     }
     
-    response = requests.get(url, auth=requests.auth.HTTPDigestAuth(public_key, private_key), headers=headers)
-    response_body = response.json()
-    
-    print_response_error(response.status_code, response_body)
-    
     groupId = None
     
-    if 'id' in response_body:
-        groupId = response_body['id']
+    response = requests.get(url, auth=requests.auth.HTTPDigestAuth(public_key, private_key), headers=headers)
+    success = check_response_status(response, 200)
+    
+    if success:
+        response_body = response.json()
+        
+        if 'id' in response_body:
+            groupId = response_body['id']
         
     return groupId
 
 
-# https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Project-and-Application-IDs
-def get_appId(access_token : str, groupId : str, cluster_name : str):
+def get_appId(access_token : str, groupId : str, cluster_name : str) -> str | None:
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'Authorization': f'Bearer {access_token}'
     }
     
+    appId = None
+    
     # GET Apps list
+    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Project-and-Application-IDs
     # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminListApplications
     url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
     
-    response_GET_apps_list = requests.get(url, headers=headers)
-    response_body_GET_apps_list = response_GET_apps_list.json()
+    response_GET = requests.get(url, headers=headers)
+    success_GET = check_response_status(response_GET, 200)
     
-    print_response_error(response_GET_apps_list.status_code, response_body_GET_apps_list)
-    
-    appId = None
-    
-    for value in response_body_GET_apps_list:
-        if 'product' in value and value['product'] == 'atlas':
-            appId = value['_id']
-            break
-    
-    if appId is None:
-        # POST a new App (of 'atlas' type, for Atlas Triggers)
-        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminCreateApplication
-        url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
+    if success_GET:
+        response_body_GET = response_GET.json()
         
-        body = {
-            'name': 'Triggers',
-            'data_source': get_data_source_config(cluster_name)
-        }
+        for value in response_body_GET:
+            if 'product' in value and value['product'] == 'atlas':
+                appId = value['_id']
+                break
         
-        response_POST_app = requests.post(url, headers=headers, data=json.dumps(body))
-        response_body_POST_app = response_POST_app.json()
-        
-        print_response_error(response_POST_app.status_code, response_body_POST_app)
-        
-        appId = response_body_POST_app['_id']
+        if appId is None:
+            # POST a new App (of 'atlas' type, for Atlas Triggers)
+            # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminCreateApplication
+            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
+            
+            body = {
+                'name': 'Triggers',
+                'data_source': get_data_source_config(cluster_name)
+            }
+            
+            response_POST = requests.post(url, headers=headers, data=json.dumps(body))
+            success_POST = check_response_status(response_POST, 201)
+            
+            if success_POST:
+                response_body_POST = response_POST.json()
+                
+                appId = response_body_POST['_id']
     
     
     return appId
 
 
-def get_service_id(access_token : str, groupId : str, appId : str, cluster_name : str):
+def get_service_id(access_token : str, groupId : str, appId : str, cluster_name : str) -> str | None:
     headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -161,13 +180,13 @@ def get_service_id(access_token : str, groupId : str, appId : str, cluster_name 
     url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/pull'
     
     response_GET_app_config = requests.get(url, headers=headers)
+    success_GET_app_config = check_response_status(response_GET_app_config, 200)
     
-    if response_GET_app_config.status_code == 200:
+    if success_GET_app_config:
         response_body_GET_app_config = response_GET_app_config.json()
         
-        data_sources = response_body_GET_app_config['data_sources']
-        
         data_source_name = None
+        data_sources = response_body_GET_app_config['data_sources']
         
         for data_source in data_sources:
             if data_source['config']['clusterName'] == cluster_name:
@@ -181,31 +200,30 @@ def get_service_id(access_token : str, groupId : str, appId : str, cluster_name 
             url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/services'
             
             response_GET_list_data_sources = requests.get(url, headers=headers)
-            response_body_GET_list_data_sources = response_GET_list_data_sources.json()
-                
-            print_response_error(response_GET_list_data_sources.status_code, response_body_GET_list_data_sources)
+            success_GET_list_data_sources = check_response_status(response_GET_list_data_sources, 200)
             
-            for value in response_body_GET_list_data_sources:
-                if 'name' in value and value['name'] == data_source_name:
-                    service_id = value['_id']
-                    break
+            if success_GET_list_data_sources:
+                response_body_GET_list_data_sources = response_GET_list_data_sources.json()
+                            
+                for value in response_body_GET_list_data_sources:
+                    if 'name' in value and value['name'] == data_source_name:
+                        service_id = value['_id']
+                        break
             
         else:
             # POST data source
             # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/services/operation/adminCreateService
             url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/services'
             
-            data = get_data_source_config(cluster_name)
+            body = get_data_source_config(cluster_name)
             
-            response_POST_data_source = requests.post(url, headers=headers, data=json.dumps(data))
-            response_body_POST_data_source = response_POST_data_source.json()
+            response_POST = requests.post(url, headers=headers, data=json.dumps(body))
+            success_POST = check_response_status(response_POST, 201)
             
-            print_response_error(response_POST_data_source.status_code, {})
-            
-            service_id = response_body_POST_data_source['_id']
-            
-    else:
-        print_response_error(response_GET_app_config.status_code, {})
+            if success_POST:
+                response_body_POST = response_POST.json()
+                
+                service_id = response_body_POST['_id']
     
     
     return service_id
@@ -222,21 +240,21 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
     url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/functions'
     
     response_POST_function = requests.post(url, headers=headers, data=json.dumps(function_data))
-    response_body_POST_function = response_POST_function.json()
+    success_POST_function = check_response_status(response_POST_function, 201)
     
-    print_response_error(response_POST_function.status_code, response_body_POST_function)
-    
-    # POST Trigger
-    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminCreateTrigger
-    if '_id' in response_body_POST_function:
-        url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers'
+    if success_POST_function:
+        response_body_POST_function = response_POST_function.json()
         
-        trigger_data['function_id'] = response_body_POST_function['_id']
-        
-        response_POST_trigger = requests.post(url, headers=headers, data=json.dumps(trigger_data))
-        response_body_POST_trigger = response_POST_trigger.json()
-        
-        print_response_error(response_POST_trigger.status_code, response_body_POST_trigger)
+        # POST Trigger
+        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminCreateTrigger
+        if '_id' in response_body_POST_function:
+            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers'
+            
+            trigger_data['function_id'] = response_body_POST_function['_id']
+            
+            response_POST_trigger = requests.post(url, headers=headers, data=json.dumps(trigger_data))
+            
+            check_response_status(response_POST_trigger, 201)
 
 
 def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service_id : str, cluster_name : str, 

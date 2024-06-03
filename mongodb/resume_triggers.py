@@ -8,10 +8,23 @@ import json
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2
 
-def print_response_error(status_code : int, body : dict):    
-    if 'error' in body:
+def check_response_status(response: requests.Response, success_code : int):
+    status_code = response.status_code
+    success = True
+        
+    if status_code != success_code:
+        success = False
+        
         frame = inspect.currentframe().f_back
         caller_info = inspect.getframeinfo(frame)
+        
+        try:
+            response_body = response.json()
+        except Exception:
+            if response.text == '':
+                response_body = response.content
+            else:
+                response_body = response.text
         
         logger = logging.getLogger()
         
@@ -21,16 +34,18 @@ def print_response_error(status_code : int, body : dict):
             pathname=caller_info.filename,
             lineno=caller_info.lineno,
             func=caller_info.function,
-            msg=f'Response Status Code: {status_code}\nResponse Body: {body}',
+            msg=f'Response Status Code: {status_code}\nResponse Body: {response_body}',
             args=None,
             exc_info=None
         )
         
         logger.handle(log_record)
+    
+    return success
 
 
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Get-an-Admin-API-Session-Access-Token
-def get_access_token(public_key : str, private_key : str):
+def get_access_token(public_key : str, private_key : str) -> str | None:
     url = 'https://services.cloud.mongodb.com/api/admin/v3.0/auth/providers/mongodb-cloud/login'
 
     headers = {
@@ -43,42 +58,45 @@ def get_access_token(public_key : str, private_key : str):
         'apiKey': private_key       # <Private API Key>
     }
     
-    response = requests.post(url, headers=headers, data=json.dumps(body))
-    response_body = response.json()
-    
-    print_response_error(response.status_code, response_body)
-    
     access_token = None
     
-    if 'access_token' in response_body:
-        access_token = response_body['access_token']
+    response = requests.post(url, headers=headers, data=json.dumps(body))
+    success = check_response_status(response, 200)
+    
+    if success:
+        response_body = response.json()
+        
+        if 'access_token' in response_body:
+            access_token = response_body['access_token']
 
     return access_token
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Projects/operation/getProjectByName
-def get_groupId(public_key : str, private_key : str, groupName : str):
+def get_groupId(public_key : str, private_key : str, groupName : str) -> str | None:
     url = f'https://cloud.mongodb.com/api/atlas/v2/groups/byName/{groupName}'
     
     headers = {
         'Accept': 'application/vnd.atlas.2024-05-30+json'
     }
     
-    response = requests.get(url, auth=requests.auth.HTTPDigestAuth(public_key, private_key), headers=headers)
-    response_body = response.json()
-    
-    print_response_error(response.status_code, response_body)
-    
     groupId = None
     
-    if 'id' in response_body:
-        groupId = response_body['id']
+    response = requests.get(url, auth=requests.auth.HTTPDigestAuth(public_key, private_key), headers=headers)
+    success = check_response_status(response, 200)
+    
+    if success:
+        response_body = response.json()
+        
+        if 'id' in response_body:
+            groupId = response_body['id']
         
     return groupId
 
 
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Project-and-Application-IDs
-def get_appId(access_token : str, groupId : str):
+# https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminListApplications
+def get_appId(access_token : str, groupId : str) -> str | None:
     url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
 
     headers = {
@@ -86,17 +104,18 @@ def get_appId(access_token : str, groupId : str):
         'Authorization': f'Bearer {access_token}'
     }
     
-    response = requests.get(url, headers=headers)
-    response_body = response.json()
-    
-    print_response_error(response.status_code, response_body)
-    
     appId = None
-
-    for value in response_body:
-        if 'product' in value and value['product'] == 'atlas':
-            appId = value['_id']
-            break
+    
+    response = requests.get(url, headers=headers)
+    success = check_response_status(response, 200)
+    
+    if success:
+        response_body = response.json()
+        
+        for value in response_body:
+            if 'product' in value and value['product'] == 'atlas':
+                appId = value['_id']
+                break
         
     return appId
 
@@ -111,32 +130,28 @@ def resume_triggers(access_token: str, groupId : str, appId : str, trigger_names
     # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminListTriggers
     url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers'
     
-    response_GET_all_triggers = requests.get(url, headers=headers)
-    response_body_GET_all_triggers = response_GET_all_triggers.json()
+    response_GET = requests.get(url, headers=headers)
+    success = check_response_status(response_GET, 200)
     
-    print_response_error(response_GET_all_triggers.status_code, response_body_GET_all_triggers)
-    
-    trigger_ids = []
-    
-    for value in response_body_GET_all_triggers:
-        if 'name' in value and value['name'] in trigger_names:
-            trigger_ids.append(value['_id'])
-    
-    
-    # RESUME each trigger (PUT)
-    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminResumeTrigger
-    for triggerId in trigger_ids:
-        url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers/{triggerId}/resume'
+    if success:
+        response_body_GET = response_GET.json()
         
-        # 'disable_token' default value: False
-        response_RESUME_trigger = requests.put(url, headers=headers)
-        response_status_code = response_RESUME_trigger.status_code
+        trigger_ids = []
         
-        if response_status_code == 404: 
-            response_body_RESUME_trigger = response_RESUME_trigger.json()
+        for value in response_body_GET:
+            if 'name' in value and value['name'] in trigger_names:
+                trigger_ids.append(value['_id'])
+        
+        
+        # RESUME each trigger (PUT)
+        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminResumeTrigger
+        for triggerId in trigger_ids:
+            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers/{triggerId}/resume'
             
-            print_response_error(response_RESUME_trigger.status_code, response_body_RESUME_trigger)
-    
+            # 'disable_token' default value: False
+            response_PUT = requests.put(url, headers=headers)
+            check_response_status(response_PUT, 204)
+         
     
 def main():
     parser = argparse.ArgumentParser()
