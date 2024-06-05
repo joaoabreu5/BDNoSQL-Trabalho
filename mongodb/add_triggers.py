@@ -13,7 +13,7 @@ import os
 SCRIPT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 TRIGGERS_DIR_PATH = os.path.join(SCRIPT_DIR_PATH, 'triggers')
 
-def read_JS_file(filename : str):
+def read_trigger_JS_file(filename : str):
     if not filename.endswith('.js'):
         filename += '.js'
     
@@ -21,6 +21,16 @@ def read_JS_file(filename : str):
     
     with open(path, 'r') as js_file:
         return js_file.read()
+    
+    
+def read_trigger_JSON_file(filename : str):
+    if not filename.endswith('.json'):
+        filename += '.json'
+    
+    path = os.path.join(TRIGGERS_DIR_PATH, filename)
+    
+    with open(path, 'r') as json_file:
+        return json.load(json_file)
 
 
 def check_response_status(response: requests.Response, success_code : int):
@@ -265,14 +275,14 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
     
     if isinstance(field_name, str):
         trigger_name = f'{field_name}_trigger'
-        trigger_code = trigger_template.render(service_name_j2_var=service_name, field_name_j2_var=field_name)
+        trigger_code = trigger_template.render(service_name=service_name, field_name=field_name)
         
     elif len(field_name) == 2:
         list_name, list_obj_field_name = field_name
         
         trigger_name = f'{list_name}_{list_obj_field_name}_trigger'
-        trigger_code = trigger_template.render(service_name_j2_var=service_name, 
-                                               list_name_j2_var=list_name, obj_field_name_j2_var=list_obj_field_name)
+        trigger_code = trigger_template.render(service_name=service_name, 
+                                               list_name=list_name, obj_field_name=list_obj_field_name)
     
     function_data = {
         'name': f'{trigger_name}_function',
@@ -295,6 +305,39 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
     create_trigger(access_token, groupId, appId, function_data, trigger_data)
 
 
+def create_trg_generate_bill(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, 
+                             database_name: str, collection_name : str, j2_env: jinja2.Environment):
+    
+    trigger_name = 'trg_generate_bill'
+    
+    trigger_template = j2_env.get_template(f'{trigger_name}.js.j2') 
+       
+    trigger_code = trigger_template.render(service_name=service_name)
+    
+    function_data = {
+        'name': f'{trigger_name}_function',
+        'private': True,
+        'source': trigger_code
+    }
+    
+    trigger_data = {
+        'name': f'{trigger_name}',
+        'type': 'DATABASE',
+        'config': {
+            'service_id': service_id,
+            'database': database_name,
+            'collection': collection_name,
+            'operation_types': ['UPDATE', 'REPLACE'],
+            'match': read_trigger_JSON_file(f'{trigger_name}_match_exp'),
+            'full_document': True,
+            'full_document_before_change': True,
+            'tolerate_resume_errors': True
+        }
+    }
+    
+    create_trigger(access_token, groupId, appId, function_data, trigger_data)
+    
+    
 def create_triggers(access_token: str, groupId : str, appId : str, service_id : str, service_name : str):
     database_name = 'hospital'
     episodes_coll_name = 'episodes'
@@ -319,6 +362,8 @@ def create_triggers(access_token: str, groupId : str, appId : str, service_id : 
     for coll_name, field_name, trigger_template in seq_id_triggers_coll_field:
         create_seq_id_trigger(access_token, groupId, appId, service_id, service_name, database_name, 
                               coll_name, field_name, trigger_template)
+    
+    create_trg_generate_bill(access_token, groupId, appId, service_id, service_name, database_name, coll_name, j2_env)
     
     
 def main():

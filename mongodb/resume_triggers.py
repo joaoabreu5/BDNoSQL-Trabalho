@@ -176,7 +176,8 @@ def main():
         'medical_history_record_id_trigger',
         'bills_id_bill_trigger',
         'prescriptions_id_prescription_trigger',
-        'lab_screenings_lab_id_trigger'
+        'lab_screenings_lab_id_trigger',
+        'trg_generate_bill'
     ]
     
     resume_triggers(access_token, groupId, appId, trigger_names)

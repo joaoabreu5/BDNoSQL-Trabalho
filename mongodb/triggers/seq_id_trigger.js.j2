@@ -7,10 +7,10 @@ exports = async function(changeEvent) {
         const fullDocument = changeEvent.fullDocument;
         const docId = changeEvent.documentKey._id;
 
-        const serviceName = '{{ service_name_j2_var }}';
+        const serviceName = '{{ service_name }}';
         const databaseName = changeEvent.ns.db;
         const collectionName = changeEvent.ns.coll;
-        const fieldName = '{{ field_name_j2_var }}';
+        const fieldName = '{{ field_name }}';
         
         const countersCollName = 'counters'
         const countersFieldName = 'seq'

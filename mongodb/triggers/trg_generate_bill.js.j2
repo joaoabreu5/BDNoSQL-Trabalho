@@ -1,0 +1,84 @@
+function stringify(object) {
+    return JSON.stringify(object).replaceAll('"', "'").replaceAll(':', ': ').replaceAll(',', ', ');
+}
+
+function isIterable(value) {
+    return Symbol.iterator in Object(value);
+}
+
+exports = async function(changeEvent) {
+    try {
+        const fullDocument = changeEvent.fullDocument;
+        const docId = changeEvent.documentKey._id;
+
+        const serviceName = '{{ service_name }}';
+        const databaseName = changeEvent.ns.db;
+        const collectionName = changeEvent.ns.coll;
+
+        const episodesCollection = context.services.get(serviceName).db(databaseName).collection(collectionName);
+
+
+        // Calculate the room cost for the associated hospitalization
+        let roomCost = 0;
+        const hospitalization = fullDocument.hospitalization;
+        
+        if (hospitalization) {
+          const room = hospitalization.room;
+          
+          if (room && room.room_cost) {
+            roomCost = room.room_cost;
+          }
+        }
+        
+        // Calculate the test cost for the associated hospitalization
+        let testsCost = 0;
+        const lab_screenings = fullDocument.lab_screenings;
+        
+        if (isIterable(lab_screenings)) {
+            for (test of lab_screenings) {
+                if (test.test_cost) {
+                    testsCost += test.test_cost;
+                }
+            }
+        }
+        
+        // Calculate the other charges for prescriptions for the associated hospitalization
+        let prescriptionsCost = 0;
+        const prescriptions = fullDocument.prescriptions;
+        
+        if (isIterable(prescriptions)) {
+            for (prescription of prescriptions) {
+                const medicine = prescription.medicine;
+                const dosage = prescription.dosage;
+                
+                if (medicine && dosage && medicine.m_cost) {
+                    prescriptionsCost += medicine.m_cost * dosage; 
+                }
+            }
+        }
+        
+        // Calculate the total cost of the bill for the associated episode
+        const totalCost = roomCost + testsCost + prescriptionsCost;
+        
+
+        // Insert the bill with the total cost for the associated episode
+        const newBill = {
+          room_cost: roomCost,
+          test_cost: testsCost,
+          other_charges: prescriptionsCost,
+          total: totalCost,
+          registered_at: new Date(),
+          payment_status: 'PENDING'
+        }
+
+        const billsListName = 'bills';
+        const documentQuery = { _id: docId };
+
+        await episodesCollection.updateOne(documentQuery, { $push: { [billsListName]: newBill } });
+        
+        console.log(`Adicionada fatura ${stringify(newBill)} ao documento ${stringify(documentQuery)}, na lista '${billsListName}'.`);
+
+    } catch (err) {
+        console.error('Erro ao executar o trigger: ', err.message);
+    }
+};

@@ -16,11 +16,11 @@ exports = async function(changeEvent) {
         const fullDocument = changeEvent.fullDocument;
         const docId = changeEvent.documentKey._id;
 
-        const serviceName = '{{ service_name_j2_var }}';
+        const serviceName = '{{ service_name }}';
         const databaseName = changeEvent.ns.db;
         const collectionName = changeEvent.ns.coll;
-        const listName = '{{ list_name_j2_var }}';
-        const objFieldName = '{{ obj_field_name_j2_var }}';
+        const listName = '{{ list_name }}';
+        const objFieldName = '{{ obj_field_name }}';
         
         const countersCollName = 'counters'
         const countersFieldName = 'seq'

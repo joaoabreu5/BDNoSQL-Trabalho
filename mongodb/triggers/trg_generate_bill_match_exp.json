@@ -1,0 +1,6 @@
+{
+    "fullDocumentBeforeChange.hospitalization.discharge_date": null,
+    "fullDocument.hospitalization.discharge_date": {
+        "$ne": null
+    }
+}
