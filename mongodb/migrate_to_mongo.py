@@ -320,11 +320,7 @@ def migrate_staff(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection
         doctor_obj['email'] = doctor[5]
         doctor_obj['address'] = doctor[6]
         doctor_obj['ssn'] = int(doctor[7])
-        doctor_obj['is_active_status'] = False
-        
-        if doctor[9] == 'Y':
-            doctor_obj['is_active_status'] = True
-        
+        doctor_obj['is_active_status'] = doctor[9] == 'Y'
         doctor_obj['department'] = {
             'id_department': doctor[8],
             'department_head': doctor[11],
@@ -355,11 +351,7 @@ def migrate_staff(oracle_conn : OracleConnection, mongo_conn : MongoDBConnection
         nurse_obj['email'] = nurse[5]
         nurse_obj['address'] = nurse[6]
         nurse_obj['ssn'] = int(nurse[7])
-        nurse_obj['is_active_status'] = False
-        
-        if nurse[9] == 'Y':
-            nurse_obj['is_active_status'] = True
-        
+        nurse_obj['is_active_status'] = nurse[9] == 'Y'
         nurse_obj['department'] = {
             'id_department': nurse[8],
             'department_head': nurse[11],
