@@ -417,3 +417,449 @@ BEGIN
 END GetTechniciansCountPerDepartment;
 
 SELECT * FROM TABLE(GetTechniciansCountPerDepartment());
+
+---------------------------------------------------------------------------------------------------------------
+
+-- INSERTS
+
+-- Insert Staff Member
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum IDPATIENT value
+    SELECT COALESCE(MAX(EMP_ID), 0) INTO max_id FROM Admin.STAFF;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE staff_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+
+CREATE OR REPLACE PROCEDURE insert_hospital_staff_member (
+    emp_fname VARCHAR2,
+    emp_lname VARCHAR2,
+    date_joining DATE,
+    date_sepEration DATE,
+    email VARCHAR2,
+    adDress VARCHAR2,
+    ssn NUMBER,
+    iddepartment NUMBER,
+    is_active_status VARCHAR2
+) IS
+BEGIN
+    INSERT INTO Admin.STAFF (
+        EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
+    )
+    VALUES (
+        staff_seq_new.NEXTVAL, emp_fname, emp_lname, TO_DATE(date_joining, 'YY.MM.DD'), TO_DATE(date_sepEration, 'YY.MM.DD'), email, adDress, ssn, iddepartment, is_active_status
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL.STAFF');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    insert_hospital_staff_member(
+        'Francisco', 'Claudino', '', '', 'claudino@gmail.com', 'A minha casa', 658, 5, 'Y'
+    );
+END;
+
+
+-- Insert Department
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum IDPATIENT value
+    SELECT COALESCE(MAX(IDDEPARTMENT), 0) INTO max_id FROM Admin.DEPARTMENT;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE department_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+
+CREATE OR REPLACE PROCEDURE insert_hospital_department (
+    dept_head VARCHAR2,
+    dept_name VARCHAR2,
+    emp_count NUMBER
+) IS
+BEGIN
+    INSERT INTO Admin.DEPARTMENT (
+        IDDEPARTMENT, DEPT_HEAD, DEPT_NAME, EMP_COUNT
+    )
+    VALUES (
+        department_seq_new.NEXTVAL, dept_head, dept_name,emp_count
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.DEPARTMENT');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    insert_hospital_department('Francisco', 'Informatica', 658);
+END;
+
+
+-- Insert Nurse
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum STAFF_EMP_ID value
+    SELECT COALESCE(MAX(STAFF_EMP_ID), 0) INTO max_id FROM Admin.NURSE;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE nurse_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+
+CREATE OR REPLACE PROCEDURE insert_nurse (
+    staff_emp_id NUMBER
+) IS
+BEGIN
+    INSERT INTO Admin.NURSE (
+        STAFF_EMP_ID
+    )
+    VALUES (
+        staff_emp_id
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.NURSE');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    insert_nurse(1);
+END;
+
+
+-- Insert Doctor
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum EMP_ID value in the DOCTOR table
+    SELECT COALESCE(MAX(EMP_ID), 0) INTO max_id FROM Admin.DOCTOR;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE doctor_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+
+CREATE OR REPLACE PROCEDURE insert_doctor (
+    emp_id NUMBER,
+    qualifications VARCHAR2
+) IS
+BEGIN
+    INSERT INTO Admin.DOCTOR (
+        EMP_ID, QUALIFICATIONS
+    )
+    VALUES (
+        emp_id, qualifications
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.DOCTOR');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    insert_doctor(1,'Cardiology');
+END;
+
+
+-- Insert Technician
+DECLARE
+    max_id NUMBER;
+BEGIN
+    -- Determine the current maximum STAFF_EMP_ID value in the TECHNICIAN table
+    SELECT COALESCE(MAX(STAFF_EMP_ID), 0) INTO max_id FROM Admin.TECHNICIAN;
+
+    -- Create the sequence starting from the next value
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE technician_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+
+CREATE OR REPLACE PROCEDURE insert_technician (
+    staff_emp_id NUMBER
+) IS
+BEGIN
+    INSERT INTO Admin.TECHNICIAN (
+        STAFF_EMP_ID
+    )
+    VALUES (
+        staff_emp_id
+    );
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.TECHNICIAN');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    insert_technician(1);
+END;
+
+
+-- Insert Staff and Nurse
+CREATE OR REPLACE PROCEDURE insert_staff_and_nurse (
+    emp_fname VARCHAR2,
+    emp_lname VARCHAR2,
+    date_joining DATE,
+    date_seperation DATE,
+    email VARCHAR2,
+    address VARCHAR2,
+    ssn NUMBER,
+    iddepartment NUMBER,
+    is_active_status VARCHAR2
+) IS
+    emp_id NUMBER;
+BEGIN
+    -- Insert staff member and get the new EMP_ID
+    INSERT INTO Admin.STAFF (
+        EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
+    )
+    VALUES (
+        staff_seq_new.NEXTVAL, emp_fname, emp_lname, date_joining, date_seperation, email, address, ssn, iddepartment, is_active_status
+    )
+    RETURNING EMP_ID INTO emp_id;
+
+    -- Insert into nurse table
+    INSERT INTO Admin.NURSE (STAFF_EMP_ID) VALUES (emp_id);
+
+    DBMS_OUTPUT.PUT_LINE('Staff member and nurse inserted successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+
+BEGIN
+    insert_staff_and_nurse(
+        'Francisco', 'Claudino', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'claudino@gmail.com', 'A minha casa', 123456789, 5, 'Y'
+    );
+END;
+
+
+-- Insert Staff and Doctor
+CREATE OR REPLACE PROCEDURE insert_staff_and_doctor (
+    emp_fname VARCHAR2,
+    emp_lname VARCHAR2,
+    date_joining DATE,
+    date_seperation DATE,
+    email VARCHAR2,
+    address VARCHAR2,
+    ssn NUMBER,
+    iddepartment NUMBER,
+    is_active_status VARCHAR2,
+    qualifications VARCHAR2
+) IS
+    emp_id NUMBER;
+BEGIN
+    -- Insert staff member and get the new EMP_ID
+    INSERT INTO Admin.STAFF (
+        EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
+    )
+    VALUES (
+        staff_seq_new.NEXTVAL, emp_fname, emp_lname, date_joining, date_seperation, email, address, ssn, iddepartment, is_active_status
+    )
+    RETURNING EMP_ID INTO emp_id;
+
+    -- Insert into doctor table
+    INSERT INTO Admin.DOCTOR (EMP_ID, QUALIFICATIONS) VALUES (emp_id, qualifications);
+
+    DBMS_OUTPUT.PUT_LINE('Staff member and doctor inserted successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+
+BEGIN
+    insert_staff_and_doctor(
+        'John', 'Doe', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'john.doe@example.com', '123 Main St', 987654321, 3, 'Y', 'Cardiology'
+    );
+END;
+
+
+-- Insert Staff and Techincian
+CREATE OR REPLACE PROCEDURE insert_staff_and_technician (
+    emp_fname VARCHAR2,
+    emp_lname VARCHAR2,
+    date_joining DATE,
+    date_seperation DATE,
+    email VARCHAR2,
+    address VARCHAR2,
+    ssn NUMBER,
+    iddepartment NUMBER,
+    is_active_status VARCHAR2
+) IS
+    emp_id NUMBER;
+BEGIN
+    -- Insert staff member and get the new EMP_ID
+    INSERT INTO Admin.STAFF (
+        EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
+    )
+    VALUES (
+        staff_seq_new.NEXTVAL, emp_fname, emp_lname, date_joining, date_seperation, email, address, ssn, iddepartment, is_active_status
+    )
+    RETURNING EMP_ID INTO emp_id;
+
+    -- Insert into technician table
+    INSERT INTO Admin.TECHNICIAN (STAFF_EMP_ID) VALUES (emp_id);
+
+    DBMS_OUTPUT.PUT_LINE('Staff member and technician inserted successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    insert_staff_and_technician(
+        'Jane', 'Smith', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'jane.smith@example.com', '456 Elm St', 111222333, 7, 'Y'
+    );
+END;
+
+
+-- Creation of the Table to detect what role the staff member has
+CREATE TABLE Admin.STAFF_ROLES (
+    EMP_ID NUMBER PRIMARY KEY,
+    ROLE_TYPE VARCHAR2(10) NOT NULL
+);
+
+-- Procedure that inserts into both the Staff and Nurse tables as well as the Staff_Roles table created
+CREATE OR REPLACE PROCEDURE insert_staff_with_role (
+    emp_fname VARCHAR2,
+    emp_lname VARCHAR2,
+    date_joining DATE,
+    date_seperation DATE,
+    email VARCHAR2,
+    address VARCHAR2,
+    ssn NUMBER,
+    iddepartment NUMBER,
+    is_active_status VARCHAR2,
+    role_type VARCHAR2
+) IS
+    emp_id NUMBER;
+BEGIN
+    -- Insert staff member and get the new EMP_ID
+    INSERT INTO Admin.STAFF (
+        EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
+    )
+    VALUES (
+        staff_seq_new.NEXTVAL, emp_fname, emp_lname, date_joining, date_seperation, email, address, ssn, iddepartment, is_active_status
+    )
+    RETURNING EMP_ID INTO emp_id;
+
+    -- Insert role information into the STAFF_ROLES table
+    INSERT INTO Admin.STAFF_ROLES (EMP_ID, ROLE_TYPE) VALUES (emp_id, role_type);
+
+    DBMS_OUTPUT.PUT_LINE('Staff member and role inserted successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+-- Trigger for Inserting a Staff Member and a Nurse
+CREATE OR REPLACE TRIGGER trg_insert_staff_and_nurse
+AFTER INSERT ON Admin.STAFF
+FOR EACH ROW
+DECLARE
+    role_type VARCHAR2(10);
+BEGIN
+    -- Get the role type from the STAFF_ROLES table
+    SELECT ROLE_TYPE INTO role_type FROM Admin.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
+
+    -- If the role type is 'NURSE', call the insert_staff_and_nurse procedure
+    IF role_type = 'NURSE' THEN
+        insert_staff_and_nurse(
+            :NEW.EMP_FNAME,
+            :NEW.EMP_LNAME,
+            :NEW.DATE_JOINING,
+            :NEW.DATE_SEPERATION,
+            :NEW.EMAIL,
+            :NEW.ADDRESS,
+            :NEW.SSN,
+            :NEW.IDDEPARTMENT,
+            :NEW.IS_ACTIVE_STATUS
+        );
+    END IF;
+END;
+
+
+BEGIN
+    insert_staff_with_role(
+        'Francisco', 'Claudino', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'claudino@gmail.com', 'A minha casa', 123456789, 5, 'Y', 'NURSE'
+    );
+END;
+
+
+-- Trigger to insert Staff and Doctor
+CREATE OR REPLACE TRIGGER trg_insert_staff_and_doctor
+AFTER INSERT ON Admin.STAFF
+FOR EACH ROW
+DECLARE
+    role_type VARCHAR2(10);
+BEGIN
+    -- Get the role type from the STAFF_ROLES table
+    SELECT ROLE_TYPE INTO role_type FROM Admin.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
+
+    -- If the role type is 'DOCTOR', call the insert_staff_and_doctor procedure
+    IF role_type = 'DOCTOR' THEN
+        insert_staff_and_doctor(
+            :NEW.EMP_FNAME,
+            :NEW.EMP_LNAME,
+            :NEW.DATE_JOINING,
+            :NEW.DATE_SEPERATION,
+            :NEW.EMAIL,
+            :NEW.ADDRESS,
+            :NEW.SSN,
+            :NEW.IDDEPARTMENT,
+            :NEW.IS_ACTIVE_STATUS,
+            'Qualifications'  -- Replace with actual qualifications
+        );
+    END IF;
+END;
+
+BEGIN
+    insert_staff_with_role(
+        'John', 'Doe', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'john.doe@example.com', '123 Main St', 987654321, 3, 'Y', 'DOCTOR'
+    );
+END;
+
+
+-- Trigger to insert staff and technician
+CREATE OR REPLACE TRIGGER trg_insert_staff_and_technician
+AFTER INSERT ON Admin.STAFF
+FOR EACH ROW
+DECLARE
+    role_type VARCHAR2(10);
+BEGIN
+    -- Get the role type from the STAFF_ROLES table
+    SELECT ROLE_TYPE INTO role_type FROM Admin.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
+
+    -- If the role type is 'TECHNICIAN', call the insert_staff_and_technician procedure
+    IF role_type = 'TECHNICIAN' THEN
+        insert_staff_and_technician(
+            :NEW.EMP_FNAME,
+            :NEW.EMP_LNAME,
+            :NEW.DATE_JOINING,
+            :NEW.DATE_SEPERATION,
+            :NEW.EMAIL,
+            :NEW.ADDRESS,
+            :NEW.SSN,
+            :NEW.IDDEPARTMENT,
+            :NEW.IS_ACTIVE_STATUS
+        );
+    END IF;
+END;
+
+BEGIN
+    insert_staff_with_role(
+        'Jane', 'Smith', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'jane.smith@example.com', '456 Elm St', 111222333, 7, 'Y', 'TECHNICIAN'
+    );
+END;
+
+
+---------------------------------------------------------------------------------------------------------------
+
+-- UPDATES
+
+
+---------------------------------------------------------------------------------------------------------------
+
+-- DELETES
