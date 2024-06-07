@@ -215,7 +215,7 @@ END AllInfoLabScreening;
 SELECT * FROM TABLE(AllInfoLabScreening(1));
 
 -- 8)
--- Information from all the tables (TODO - Resultado Incorreto acho)
+-- Information from all the tables
 CREATE OR REPLACE TYPE EpisodeInfoRow AS OBJECT (
   IDEPISODE NUMBER(38,0),
   PATIENT_IDPATIENT NUMBER(38,0),
@@ -361,16 +361,13 @@ FROM Hospital.Medicine M
 ORDER BY M.M_COST;
 
 -- 7) Listar todas as medicações que estão prestes a esgotar (quantidade baixa)
--- Define the object type for a medicine
 CREATE OR REPLACE TYPE MedicineRowNew AS OBJECT (
   M_NAME VARCHAR2(45),
   M_QUANTITY NUMBER(38,0)
 );
 
--- Define the table type for a collection of medicines
 CREATE OR REPLACE TYPE MedicineTableNew IS TABLE OF MedicineRowNew;
 
--- Create the function to get low stock medicines
 CREATE OR REPLACE FUNCTION LowStockMedicines(threshold IN NUMBER)
   RETURN MedicineTableNew PIPELINED IS
 BEGIN
@@ -385,7 +382,6 @@ BEGIN
   RETURN;
 END LowStockMedicines;
 
--- Example of using the function with a threshold of 10
 SELECT * FROM TABLE(LowStockMedicines(25));
 
 -- 8)
@@ -398,6 +394,16 @@ FROM Hospital.Medicine M;
 
 -- 2)
 -- Listar prescrições por medicação
+CREATE OR REPLACE TYPE PrescriptionRowNew AS OBJECT (
+  IDPRESCRIPTION NUMBER(38,0),
+  PRESCRIPTION_DATE DATE,
+  DOSAGE NUMBER(10,2),
+  IDMEDICINE NUMBER(38,0),
+  IDEPISODE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE PrescriptionTableNew IS TABLE OF PrescriptionRowNew;
+
 CREATE OR REPLACE FUNCTION PrescriptionsByMedicine(medicine_id IN NUMBER)
   RETURN PrescriptionTableNew PIPELINED IS
 BEGIN
@@ -415,6 +421,16 @@ SELECT * FROM TABLE(PrescriptionsByMedicine(1));
 
 -- 3) 
 -- Listar prescrições por intervalo de datas
+CREATE OR REPLACE TYPE PrescriptionRow AS OBJECT (
+  IDPRESCRIPTION NUMBER(38,0),
+  PRESCRIPTION_DATE DATE,
+  DOSAGE NUMBER(10,2),
+  IDMEDICINE NUMBER(38,0),
+  IDEPISODE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE PrescriptionTable IS TABLE OF PrescriptionRow;
+
 CREATE OR REPLACE FUNCTION PrescriptionsByDateRange(start_date IN DATE, end_date IN DATE)
   RETURN PrescriptionTable PIPELINED IS
 BEGIN
@@ -462,19 +478,27 @@ CREATE OR REPLACE TYPE RoomTypeRow AS OBJECT (
 
 CREATE OR REPLACE TYPE RoomTypeTable IS TABLE OF RoomTypeRow;
 
-CREATE OR REPLACE FUNCTION ListRoomsByType
-  RETURN RoomTypeTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE ListRoomsByTypeProc (rooms OUT RoomTypeTable) IS
 BEGIN
+  rooms := RoomTypeTable(); -- Initialize the collection
   FOR rec IN (
     SELECT IDROOM, ROOM_TYPE, ROOM_COST
     FROM Hospital.Room
   ) LOOP
-    PIPE ROW (RoomTypeRow(rec.IDROOM, rec.ROOM_TYPE, rec.ROOM_COST));
+    rooms.EXTEND;
+    rooms(rooms.COUNT) := RoomTypeRow(rec.IDROOM, rec.ROOM_TYPE, rec.ROOM_COST);
   END LOOP;
-  RETURN;
-END ListRoomsByType;
+END ListRoomsByTypeProc;
 
-SELECT * FROM TABLE(ListRoomsByType);
+DECLARE
+  rooms RoomTypeTable;
+BEGIN
+  ListRoomsByTypeProc(rooms);
+  FOR i IN 1..rooms.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('IDROOM: ' || rooms(i).IDROOM || ', ROOM_TYPE: ' || rooms(i).ROOM_TYPE || ', ROOM_COST: ' || rooms(i).ROOM_COST);
+  END LOOP;
+END;
+
 
 -- 2)
 -- List room occupations by date range
@@ -487,9 +511,8 @@ CREATE OR REPLACE TYPE RoomOccupationRow AS OBJECT (
 
 CREATE OR REPLACE TYPE RoomOccupationTable IS TABLE OF RoomOccupationRow;
 
-CREATE OR REPLACE FUNCTION ListRoomOccupationsByDateRange(
-  start_date IN DATE, end_date IN DATE
-) RETURN RoomOccupationTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListRoomOccupationsByDateRange(start_date IN DATE, end_date IN DATE)
+    RETURN RoomOccupationTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT r.IDROOM, h.ADMISSION_DATE, h.DISCHARGE_DATE, e.PATIENT_IDPATIENT
@@ -517,9 +540,9 @@ CREATE OR REPLACE TYPE OccupiedRoomRow AS OBJECT (
 
 CREATE OR REPLACE TYPE OccupiedRoomTable IS TABLE OF OccupiedRoomRow;
 
-CREATE OR REPLACE FUNCTION ListCurrentlyOccupiedRooms
-  RETURN OccupiedRoomTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE ListCurrentlyOccupiedRoomsProc (rooms OUT OccupiedRoomTable) IS
 BEGIN
+  rooms := OccupiedRoomTable();
   FOR rec IN (
     SELECT r.IDROOM, r.ROOM_TYPE, r.ROOM_COST, e.PATIENT_IDPATIENT
     FROM Hospital.Room r
@@ -527,12 +550,24 @@ BEGIN
     JOIN Hospital.Episode e ON h.IDEPISODE = e.IDEPISODE
     WHERE h.DISCHARGE_DATE IS NULL
   ) LOOP
-    PIPE ROW (OccupiedRoomRow(rec.IDROOM, rec.ROOM_TYPE, rec.ROOM_COST, rec.PATIENT_IDPATIENT));
+    rooms.EXTEND;
+    rooms(rooms.COUNT) := OccupiedRoomRow(rec.IDROOM, rec.ROOM_TYPE, rec.ROOM_COST, rec.PATIENT_IDPATIENT);
   END LOOP;
-  RETURN;
-END ListCurrentlyOccupiedRooms;
+END ListCurrentlyOccupiedRoomsProc;
 
-SELECT * FROM TABLE(ListCurrentlyOccupiedRooms);
+
+DECLARE
+  rooms OccupiedRoomTable;
+BEGIN
+  ListCurrentlyOccupiedRoomsProc(rooms);
+  FOR i IN 1..rooms.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('IDROOM: ' || rooms(i).IDROOM || 
+                         ', ROOM_TYPE: ' || rooms(i).ROOM_TYPE || 
+                         ', ROOM_COST: ' || rooms(i).ROOM_COST || 
+                         ', PATIENT_ID: ' || rooms(i).PATIENT_ID);
+  END LOOP;
+END;
+
 
 -- 5)
 -- List All Distinct Room Types and Room Costs Ordered
@@ -543,21 +578,30 @@ CREATE OR REPLACE TYPE DistinctRoomTypeRow AS OBJECT (
 
 CREATE OR REPLACE TYPE DistinctRoomTypeTable IS TABLE OF DistinctRoomTypeRow;
 
-CREATE OR REPLACE FUNCTION ListDistinctRoomTypesAndCosts
-  RETURN DistinctRoomTypeTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE ListDistinctRoomTypesAndCostsProc (rooms OUT DistinctRoomTypeTable) IS
 BEGIN
+  rooms := DistinctRoomTypeTable();
   FOR rec IN (
     SELECT DISTINCT ROOM_TYPE, MIN(ROOM_COST) AS ROOM_COST
     FROM Hospital.Room
     GROUP BY ROOM_TYPE
     ORDER BY ROOM_COST
   ) LOOP
-    PIPE ROW (DistinctRoomTypeRow(rec.ROOM_TYPE, rec.ROOM_COST));
+    rooms.EXTEND;
+    rooms(rooms.COUNT) := DistinctRoomTypeRow(rec.ROOM_TYPE, rec.ROOM_COST);
   END LOOP;
-  RETURN;
-END ListDistinctRoomTypesAndCosts;
+END ListDistinctRoomTypesAndCostsProc;
 
-SELECT * FROM TABLE(ListDistinctRoomTypesAndCosts);
+
+DECLARE
+  rooms DistinctRoomTypeTable;
+BEGIN
+  ListDistinctRoomTypesAndCostsProc(rooms);
+  FOR i IN 1..rooms.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('ROOM_TYPE: ' || rooms(i).ROOM_TYPE || ', ROOM_COST: ' || rooms(i).ROOM_COST);
+  END LOOP;
+END;
+
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -575,9 +619,8 @@ CREATE OR REPLACE TYPE HospitalizationByDateRow AS OBJECT (
 
 CREATE OR REPLACE TYPE HospitalizationByDateTable IS TABLE OF HospitalizationByDateRow;
 
-CREATE OR REPLACE FUNCTION ListHospitalizationsByDateRange(
-  start_date IN DATE, end_date IN DATE
-) RETURN HospitalizationByDateTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListHospitalizationsByDateRange(start_date IN DATE, end_date IN DATE)
+    RETURN HospitalizationByDateTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT IDEPISODE, ADMISSION_DATE, DISCHARGE_DATE, ROOM_IDROOM, RESPONSIBLE_NURSE
@@ -605,9 +648,8 @@ CREATE OR REPLACE TYPE HospitalizationByRoomTypeRow AS OBJECT (
 
 CREATE OR REPLACE TYPE HospitalizationByRoomTypeTable IS TABLE OF HospitalizationByRoomTypeRow;
 
-CREATE OR REPLACE FUNCTION ListHospitalizationsByRoomType(
-  room_type IN VARCHAR2
-) RETURN HospitalizationByRoomTypeTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListHospitalizationsByRoomType(room_type IN VARCHAR2)
+    RETURN HospitalizationByRoomTypeTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE, r.ROOM_TYPE
@@ -641,7 +683,6 @@ BEGIN
   SELECT COUNT(*) INTO total_appointments FROM Hospital.Appointment;
   RETURN total_appointments;
 END GetTotalAppointments;
-/
 
 -- Test the function
 SELECT GetTotalAppointments FROM DUAL;
@@ -652,36 +693,27 @@ SELECT GetTotalAppointments FROM DUAL;
 
 -- 3)
 -- Find total billing amount for a given episode:
--- SELECT Episode.IDEPISODE, SUM(Bill.TOTAL) AS TotalAmount
--- FROM Episode
--- JOIN Bill ON Episode.IDEPISODE = Bill.IDEPISODE
--- WHERE Episode.IDEPISODE = 2
--- GROUP BY Episode.IDEPISODE;
-
-CREATE OR REPLACE FUNCTION GetTotalBillingForEpisode(p_episode_id IN NUMBER) RETURN VARCHAR2 IS
+CREATE OR REPLACE FUNCTION GetTotalBillingForEpisode(p_episode_id IN NUMBER)RETURN VARCHAR2 IS
   v_room_cost NUMBER;
   v_test_cost NUMBER;
   v_other_charges NUMBER;
   v_total NUMBER;
-  v_result VARCHAR2(4000);  -- Adjust the size as necessary
+  v_result VARCHAR2(4000);
 BEGIN
-  -- Calculate and gather all billing details
   SELECT SUM(ROOM_COST), SUM(TEST_COST), SUM(OTHER_CHARGES), SUM(TOTAL)
   INTO v_room_cost, v_test_cost, v_other_charges, v_total
   FROM Bill
   WHERE IDEPISODE = p_episode_id;
 
-  -- Construct the result string
   v_result := 'Room Cost: ' || NVL(TO_CHAR(v_room_cost), '0') ||
               ', Test Cost: ' || NVL(TO_CHAR(v_test_cost), '0') ||
               ', Other Charges: ' || NVL(TO_CHAR(v_other_charges), '0') ||
               ', Total: ' || NVL(TO_CHAR(v_total), '0');
 
-  -- Return the constructed string
   RETURN v_result;
 EXCEPTION
   WHEN NO_DATA_FOUND THEN
-    RETURN 'No billing records found';  -- Return a clear message if no data is found
+    RETURN 'No billing records found';
 END GetTotalBillingForEpisode;
 
 SELECT GetTotalBillingForEpisode(1) AS TotalBilling FROM DUAL;
@@ -693,7 +725,6 @@ WHERE REGISTERED_AT BETWEEN TO_TIMESTAMP('2024-01-01 00:00:00', 'YYYY-MM-DD HH24
 AND TO_TIMESTAMP('2024-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS');
 
 -- Listar faturas por status de pagamento (ex: pendente).
--- Criar um tipo de objeto para representar uma linha de fatura
 CREATE OR REPLACE TYPE BillRowNew AS OBJECT (
   IDBILL NUMBER,
   ROOM_COST NUMBER,
@@ -705,13 +736,10 @@ CREATE OR REPLACE TYPE BillRowNew AS OBJECT (
   PAYMENT_STATUS VARCHAR2(10)
 );
 
--- Criar um tipo de tabela para armazenar múltiplas linhas de fatura
 CREATE OR REPLACE TYPE BillTableNew IS TABLE OF BillRowNew;
 
--- Criar a função que retorna a tabela de faturas
-CREATE OR REPLACE FUNCTION ListBillsByPaymentStatus(
-  payment_status IN VARCHAR2
-) RETURN BillTableNew PIPELINED IS
+CREATE OR REPLACE FUNCTION ListBillsByPaymentStatus(payment_status IN VARCHAR2)
+    RETURN BillTableNew PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT IDBILL, ROOM_COST, TEST_COST, OTHER_CHARGES, TOTAL, IDEPISODE, REGISTERED_AT, PAYMENT_STATUS
@@ -722,9 +750,7 @@ BEGIN
   END LOOP;
   RETURN;
 END ListBillsByPaymentStatus;
-/
 
--- Consulta para testar a função
 SELECT * FROM TABLE(ListBillsByPaymentStatus('Pending'));
 
 -- Custo Total entre Timestamps
@@ -741,10 +767,9 @@ BEGIN
 
   RETURN total_cost;
 END GetTotalCostByRegisteredDate;
-/
 
--- Testando a função
 SET SERVEROUTPUT ON;
+
 DECLARE
   v_total_cost NUMBER;
 BEGIN
@@ -754,7 +779,6 @@ BEGIN
   );
   DBMS_OUTPUT.PUT_LINE('Total Cost: ' || v_total_cost);
 END;
-/
 
 -- Sum the total costs of all the bills
 CREATE OR REPLACE FUNCTION GetTotalCostOfAllBills
@@ -767,19 +791,15 @@ BEGIN
 
   RETURN total_cost;
 END GetTotalCostOfAllBills;
-/
 
--- Testando a função
 SET SERVEROUTPUT ON;
+
 DECLARE
   v_total_cost NUMBER;
 BEGIN
   v_total_cost := GetTotalCostOfAllBills();
   DBMS_OUTPUT.PUT_LINE('Total Cost of All Bills: ' || v_total_cost);
 END;
-/
-
--- Soma de Cada um
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -796,10 +816,148 @@ FROM HOSPITAL.LAB_SCREENING
 ORDER BY TEST_COST ASC;
 
 -- Buscar LabScreening por IDEpisode
+CREATE OR REPLACE TYPE LabScreeningRowNew AS OBJECT (
+  IDLAB NUMBER(38,0),
+  TEST_COST NUMBER(10,2),
+  TEST_DATE DATE,
+  IDTECHNICIAN NUMBER(38,0),
+  EPISODE_IDEPISODE NUMBER(38,0)
+);
 
-------------------
+CREATE OR REPLACE TYPE LabScreeningTableNew IS TABLE OF LabScreeningRowNew;
 
--- Dado um Episode buscar todos as prescriptions (dose, etc) e medicamentos (quantidade, custo e nome)
+
+CREATE OR REPLACE FUNCTION GetLabScreeningsByEpisode(idepisode IN NUMBER)
+  RETURN LabScreeningTableNew PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT LAB_ID, TEST_COST, TEST_DATE, IDTECHNICIAN, EPISODE_IDEPISODE
+    FROM Hospital.Lab_Screening
+    WHERE EPISODE_IDEPISODE = idepisode
+  ) LOOP
+    PIPE ROW (LabScreeningRowNew(rec.LAB_ID, rec.TEST_COST, rec.TEST_DATE, rec.IDTECHNICIAN, rec.EPISODE_IDEPISODE));
+  END LOOP;
+  RETURN;
+END GetLabScreeningsByEpisode;
+
+SELECT * FROM TABLE(GetLabScreeningsByEpisode(1));
+
+
+-- Dado um Episode buscar todos as prescriptions e medicamentos
+CREATE OR REPLACE TYPE MedicinePrescriptionRow AS OBJECT (
+  IDMEDICINE NUMBER(38,0),
+  M_NAME VARCHAR2(45),
+  M_QUANTITY NUMBER(38,0),
+  M_COST NUMBER(10,2),
+  IDPRESCRIPTION NUMBER(38,0),
+  PRESCRIPTION_DATE DATE,
+  DOSAGE NUMBER(38,0),
+  IDEPISODE NUMBER(38,0)
+);
+
+CREATE OR REPLACE TYPE MedicinePrescriptionTable IS TABLE OF MedicinePrescriptionRow;
+
+CREATE OR REPLACE FUNCTION GetMedicinesAndPrescriptionsByEpisode(idepisode IN NUMBER)
+  RETURN MedicinePrescriptionTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT m.IDMEDICINE, m.M_NAME, m.M_QUANTITY, m.M_COST,
+           p.IDPRESCRIPTION, p.PRESCRIPTION_DATE, p.DOSAGE, p.IDEPISODE
+    FROM Hospital.Medicine m
+    JOIN Hospital.Prescription p ON m.IDMEDICINE = p.IDMEDICINE
+    WHERE p.IDEPISODE = idepisode
+  ) LOOP
+    PIPE ROW (MedicinePrescriptionRow(
+      rec.IDMEDICINE, rec.M_NAME, rec.M_QUANTITY, rec.M_COST,
+      rec.IDPRESCRIPTION, rec.PRESCRIPTION_DATE, rec.DOSAGE, rec.IDEPISODE
+    ));
+  END LOOP;
+  RETURN;
+END GetMedicinesAndPrescriptionsByEpisode;
+
+SELECT * FROM TABLE(GetMedicinesAndPrescriptionsByEpisode(1));
+
+
 -- GetTotalBillingForPacient
+CREATE OR REPLACE TYPE BillInfoRow AS OBJECT (
+  IDBILL NUMBER(38,0),
+  ROOM_COST NUMBER(10,2),
+  TEST_COST NUMBER(10,2),
+  OTHER_CHARGES NUMBER(10,2),
+  TOTAL NUMBER(10,2),
+  IDEPISODE NUMBER(38,0),
+  REGISTERED_AT TIMESTAMP,
+  PAYMENT_STATUS VARCHAR2(10),
+  TOTAL_COST_SUM NUMBER(10,2)
+);
+
+CREATE OR REPLACE TYPE BillInfoTable IS TABLE OF BillInfoRow;
+
+CREATE OR REPLACE FUNCTION GetBillInfoByPatient(idpatient IN NUMBER)
+  RETURN BillInfoTable PIPELINED IS
+  total_cost_sum NUMBER(10,2);
+BEGIN
+  SELECT SUM(TOTAL) INTO total_cost_sum
+  FROM Hospital.Bill b
+  JOIN Hospital.Episode e ON b.IDEPISODE = e.IDEPISODE
+  WHERE e.PATIENT_IDPATIENT = idpatient;
+
+  FOR rec IN (
+    SELECT b.IDBILL, b.ROOM_COST, b.TEST_COST, b.OTHER_CHARGES, b.TOTAL, 
+           b.IDEPISODE, b.REGISTERED_AT, b.PAYMENT_STATUS
+    FROM Hospital.Bill b
+    JOIN Hospital.Episode e ON b.IDEPISODE = e.IDEPISODE
+    WHERE e.PATIENT_IDPATIENT = idpatient
+  ) LOOP
+    PIPE ROW (BillInfoRow(
+      rec.IDBILL, rec.ROOM_COST, rec.TEST_COST, rec.OTHER_CHARGES, rec.TOTAL,
+      rec.IDEPISODE, rec.REGISTERED_AT, rec.PAYMENT_STATUS, total_cost_sum
+    ));
+  END LOOP;
+  RETURN;
+END GetBillInfoByPatient;
+
+SELECT * FROM TABLE(GetBillInfoByPatient(1));
 
 -- Listar Hospitalazion por Ordem de Preço
+CREATE OR REPLACE TYPE HospitalizationWithCostRow AS OBJECT (
+  ADMISSION_DATE DATE,
+  DISCHARGE_DATE DATE,
+  ROOM_IDROOM NUMBER(38,0),
+  IDEPISODE NUMBER(38,0),
+  RESPONSIBLE_NURSE NUMBER(38,0),
+  TOTAL_COST NUMBER(10,2)
+);
+
+CREATE OR REPLACE TYPE HospitalizationWithCostTable IS TABLE OF HospitalizationWithCostRow;
+
+CREATE OR REPLACE PROCEDURE ListHospitalizationsOrderedByCost (hospitalizations OUT HospitalizationWithCostTable) IS
+BEGIN
+  hospitalizations := HospitalizationWithCostTable();
+  
+  FOR rec IN (
+    SELECT h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.IDEPISODE, h.RESPONSIBLE_NURSE, b.TOTAL
+    FROM Hospital.Hospitalization h
+    JOIN Hospital.Bill b ON h.IDEPISODE = b.IDEPISODE
+    ORDER BY b.TOTAL DESC
+  ) LOOP
+    hospitalizations.EXTEND;
+    hospitalizations(hospitalizations.COUNT) := HospitalizationWithCostRow(
+      rec.ADMISSION_DATE, rec.DISCHARGE_DATE, rec.ROOM_IDROOM, rec.IDEPISODE, rec.RESPONSIBLE_NURSE, rec.TOTAL
+    );
+  END LOOP;
+END ListHospitalizationsOrderedByCost;
+
+DECLARE
+  hospitalizations HospitalizationWithCostTable;
+BEGIN
+  ListHospitalizationsOrderedByCost(hospitalizations);
+  FOR i IN 1..hospitalizations.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('ADMISSION_DATE: ' || hospitalizations(i).ADMISSION_DATE ||
+                         ', DISCHARGE_DATE: ' || hospitalizations(i).DISCHARGE_DATE ||
+                         ', ROOM_IDROOM: ' || hospitalizations(i).ROOM_IDROOM ||
+                         ', IDEPISODE: ' || hospitalizations(i).IDEPISODE ||
+                         ', RESPONSIBLE_NURSE: ' || hospitalizations(i).RESPONSIBLE_NURSE ||
+                         ', TOTAL_COST: ' || hospitalizations(i).TOTAL_COST);
+  END LOOP;
+END;
