@@ -36,9 +36,8 @@ CREATE OR REPLACE TYPE RoomPatientsRow AS OBJECT (
 
 CREATE OR REPLACE TYPE RoomPatientsTable IS TABLE OF RoomPatientsRow;
 
-CREATE OR REPLACE FUNCTION ListPatientsInRoom(
-  room_id IN NUMBER
-) RETURN RoomPatientsTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListPatientsInRoom(room_id IN NUMBER)
+    RETURN RoomPatientsTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT p.IDPATIENT, p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, r.IDROOM
@@ -67,9 +66,8 @@ CREATE OR REPLACE TYPE HospitalizationRow AS OBJECT (
 
 CREATE OR REPLACE TYPE HospitalizationTable IS TABLE OF HospitalizationRow;
 
-CREATE OR REPLACE FUNCTION ListHospitalizationsForPatient(
-  patient_id IN NUMBER
-) RETURN HospitalizationTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListHospitalizationsForPatient(patient_id IN NUMBER)
+    RETURN HospitalizationTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE
@@ -97,9 +95,8 @@ CREATE OR REPLACE TYPE HospitalizationByNurseRow AS OBJECT (
 
 CREATE OR REPLACE TYPE HospitalizationByNurseTable IS TABLE OF HospitalizationByNurseRow;
 
-CREATE OR REPLACE FUNCTION ListHospitalizationsByNurse(
-  nurse_id IN NUMBER
-) RETURN HospitalizationByNurseTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListHospitalizationsByNurse(nurse_id IN NUMBER)
+    RETURN HospitalizationByNurseTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT h.IDEPISODE, h.ADMISSION_DATE, h.DISCHARGE_DATE, h.ROOM_IDROOM, h.RESPONSIBLE_NURSE, 
@@ -125,9 +122,8 @@ CREATE OR REPLACE TYPE EpisodeRowNew AS OBJECT (
 
 CREATE OR REPLACE TYPE EpisodeTableNew IS TABLE OF EpisodeRowNew;
 
-CREATE OR REPLACE FUNCTION ListEpisodesForPatient(
-  patient_id IN NUMBER
-) RETURN EpisodeTableNew PIPELINED IS
+CREATE OR REPLACE FUNCTION ListEpisodesForPatient(patient_id IN NUMBER)
+    RETURN EpisodeTableNew PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT IDEPISODE, PATIENT_IDPATIENT
@@ -152,9 +148,8 @@ CREATE OR REPLACE TYPE EpisodeByConditionRow AS OBJECT (
 
 CREATE OR REPLACE TYPE EpisodeByConditionTable IS TABLE OF EpisodeByConditionRow;
 
-CREATE OR REPLACE FUNCTION ListEpisodesByCondition(
-  condition_type IN VARCHAR2
-) RETURN EpisodeByConditionTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListEpisodesByCondition(condition_type IN VARCHAR2)
+    RETURN EpisodeByConditionTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT e.IDEPISODE, e.PATIENT_IDPATIENT, p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_NAME, mh.CONDITION
@@ -182,9 +177,8 @@ CREATE OR REPLACE TYPE EpisodeByDoctorRow AS OBJECT (
 
 CREATE OR REPLACE TYPE EpisodeByDoctorTable IS TABLE OF EpisodeByDoctorRow;
 
-CREATE OR REPLACE FUNCTION ListEpisodesByDoctor(
-  doctor_id IN NUMBER
-) RETURN EpisodeByDoctorTable PIPELINED IS
+CREATE OR REPLACE FUNCTION ListEpisodesByDoctor(doctor_id IN NUMBER)
+    RETURN EpisodeByDoctorTable PIPELINED IS
 BEGIN
   FOR rec IN (
     SELECT e.IDEPISODE, e.PATIENT_IDPATIENT, d.EMP_ID AS DOCTOR_ID, 
@@ -202,7 +196,6 @@ BEGIN
 END ListEpisodesByDoctor;
 
 SELECT * FROM TABLE(ListEpisodesByDoctor(1));
-
 
 -- 8)
 -- Listar todos os exames laboratoriais para um paciente específico.
@@ -239,7 +232,6 @@ BEGIN
 END ListLabScreeningsByPatient;
 
 SELECT * FROM TABLE(ListLabScreeningsByPatient(1));
-
 
 -- 9)
 -- Listar exames baseados no técnico responsável.
@@ -285,7 +277,6 @@ END ListLabScreeningDetailsByTechnician;
 
 SELECT * FROM TABLE(ListLabScreeningDetailsByTechnician(1));
 
-
 -- 10)
 -- Listar todas as faturas para um paciente específico.
 CREATE OR REPLACE TYPE BillDetailsRow AS OBJECT (
@@ -321,7 +312,6 @@ BEGIN
 END ListBillDetailsByPatient;
 
 SELECT * FROM TABLE(ListBillDetailsByPatient(1));
-
 
 -- 11)
 -- Listar todas as faturas emitidas por um médico específico.
@@ -373,7 +363,6 @@ END ListBillAndAppointmentDetailsByDoctor;
 
 SELECT * FROM TABLE(ListBillAndAppointmentDetailsByDoctor(1));
 
-
 -- 12)
 -- Listar todas as consultas agendadas para um paciente específico.
 CREATE OR REPLACE TYPE AppointmentDoctorRow AS OBJECT (
@@ -410,7 +399,6 @@ BEGIN
 END ListAppointmentDoctorDetailsByPatient;
 
 SELECT * FROM TABLE(ListAppointmentDoctorDetailsByPatient(1));
-
 
 -- 13)
 -- Listar consultas baseadas no médico responsável.
@@ -450,7 +438,6 @@ BEGIN
 END ListAppointmentDoctorStaffDetailsByDoctor;
 
 SELECT * FROM TABLE(ListAppointmentDoctorStaffDetailsByDoctor(1));
-
 
 -- 14)
 -- Listar os Appointment para um dado Medico (por dia)
@@ -499,7 +486,6 @@ END ListAppointmentEpisodePatientDetails;
 
 SELECT * FROM TABLE(ListAppointmentEpisodePatientDetails(1, DATE '2023-06-01'));
 
-
 -- 15)
 -- Buscar Appointment por data
 CREATE OR REPLACE TYPE AppointmentDatePatientRow AS OBJECT (
@@ -541,7 +527,6 @@ BEGIN
 END ListAppointmentsByDate;
 
 SELECT * FROM TABLE(ListAppointmentsByDate(DATE '2023-06-01'));
-
 
 -- 16)
 -- Buscar Appointment por data e depois por hora
@@ -597,8 +582,6 @@ CREATE OR REPLACE TYPE AppointmentPatientInfoRow AS OBJECT (
 
 CREATE OR REPLACE TYPE AppointmentPatientInfoTable IS TABLE OF AppointmentPatientInfoRow;
 
-SELECT * FROM TABLE(ListAppointmentPatientInfo);
-
 CREATE OR REPLACE PROCEDURE ListAppointmentPatientInfoProc(result OUT AppointmentPatientInfoTable) IS
 BEGIN
   SELECT 
@@ -622,10 +605,8 @@ END ListAppointmentPatientInfoProc;
 DECLARE
   result AppointmentPatientInfoTable;
 BEGIN
-  -- Call the procedure
   ListAppointmentPatientInfoProc(result);
 
-  -- Print the results
   FOR i IN 1 .. result.COUNT LOOP
     DBMS_OUTPUT.PUT_LINE('Episode ID: ' || result(i).IDEPISODE || 
                          ', Scheduled On: ' || result(i).SCHEDULED_ON || 
