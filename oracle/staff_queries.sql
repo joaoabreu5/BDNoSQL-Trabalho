@@ -1,13 +1,3 @@
--- Delete 
--- Check for existing dependencies first
--- SELECT * FROM USER_DEPENDENCIES WHERE REFERENCED_NAME = 'STAFFROW';
-
--- Drop the table type if it exists
--- DROP TYPE StaffTable;
-
--- Drop the object type if it exists
--- DROP TYPE StaffRow;
-
 -- 1)
 -- All info about Hospital.Patient
 CREATE OR REPLACE TYPE StaffRow AS OBJECT (
@@ -327,20 +317,30 @@ CREATE OR REPLACE TYPE DepartmentEmployeeCountRow AS OBJECT (
 
 CREATE OR REPLACE TYPE DepartmentEmployeeCountTable IS TABLE OF DepartmentEmployeeCountRow;
 
-CREATE OR REPLACE FUNCTION GetEmployeeCountPerDepartment
-  RETURN DepartmentEmployeeCountTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE GetEmployeeCountPerDepartmentProc (departments OUT DepartmentEmployeeCountTable) IS
 BEGIN
+  departments := DepartmentEmployeeCountTable();
   FOR rec IN (
     SELECT s.IDDEPARTMENT AS DEPARTMENT_ID, COUNT(*) AS EMPLOYEE_COUNT
     FROM Hospital.Staff s
     GROUP BY s.IDDEPARTMENT
   ) LOOP
-    PIPE ROW (DepartmentEmployeeCountRow(rec.DEPARTMENT_ID, rec.EMPLOYEE_COUNT));
+    departments.EXTEND;
+    departments(departments.COUNT) := DepartmentEmployeeCountRow(
+      rec.DEPARTMENT_ID, rec.EMPLOYEE_COUNT
+    );
   END LOOP;
-  RETURN;
-END GetEmployeeCountPerDepartment;
+END GetEmployeeCountPerDepartmentProc;
 
-SELECT * FROM TABLE(GetEmployeeCountPerDepartment());
+DECLARE
+  departments DepartmentEmployeeCountTable;
+BEGIN
+  GetEmployeeCountPerDepartmentProc(departments);
+  FOR i IN 1..departments.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('DEPARTMENT_ID: ' || departments(i).DEPARTMENT_ID ||
+                         ', EMPLOYEE_COUNT: ' || departments(i).EMPLOYEE_COUNT);
+  END LOOP;
+END;
 
 -- 16)
 -- Get the number of Nurses per Department
@@ -351,22 +351,31 @@ CREATE OR REPLACE TYPE DepartmentNurseCountRow AS OBJECT (
 
 CREATE OR REPLACE TYPE DepartmentNurseCountTable IS TABLE OF DepartmentNurseCountRow;
 
-CREATE OR REPLACE FUNCTION GetNurseCountPerDepartment
-  RETURN DepartmentNurseCountTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE GetNurseCountPerDepartmentProc (departments OUT DepartmentNurseCountTable) IS
 BEGIN
+  departments := DepartmentNurseCountTable(); -- Initialize the collection
   FOR rec IN (
     SELECT s.IDDEPARTMENT AS DEPARTMENT_ID, COUNT(*) AS NURSE_COUNT
     FROM Hospital.Nurse n
     JOIN Hospital.Staff s ON n.STAFF_EMP_ID = s.EMP_ID
     GROUP BY s.IDDEPARTMENT
   ) LOOP
-    PIPE ROW (DepartmentNurseCountRow(rec.DEPARTMENT_ID, rec.NURSE_COUNT));
+    departments.EXTEND;
+    departments(departments.COUNT) := DepartmentNurseCountRow(
+      rec.DEPARTMENT_ID, rec.NURSE_COUNT
+    );
   END LOOP;
-  RETURN;
-END GetNurseCountPerDepartment;
+END GetNurseCountPerDepartmentProc;
 
-SELECT * FROM TABLE(GetNurseCountPerDepartment());
-
+DECLARE
+  departments DepartmentNurseCountTable;
+BEGIN
+  GetNurseCountPerDepartmentProc(departments);
+  FOR i IN 1..departments.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('DEPARTMENT_ID: ' || departments(i).DEPARTMENT_ID ||
+                         ', NURSE_COUNT: ' || departments(i).NURSE_COUNT);
+  END LOOP;
+END;
 
 -- 17)
 -- Get the number of Doctors per Department
@@ -377,21 +386,31 @@ CREATE OR REPLACE TYPE DepartmentDoctorCountRow AS OBJECT (
 
 CREATE OR REPLACE TYPE DepartmentDoctorCountTable IS TABLE OF DepartmentDoctorCountRow;
 
-CREATE OR REPLACE FUNCTION GetDoctorCountPerDepartment
-  RETURN DepartmentDoctorCountTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE GetDoctorCountPerDepartmentProc (departments OUT DepartmentDoctorCountTable) IS
 BEGIN
+  departments := DepartmentDoctorCountTable(); -- Initialize the collection
   FOR rec IN (
     SELECT s.IDDEPARTMENT AS DEPARTMENT_ID, COUNT(*) AS DOCTOR_COUNT
     FROM Hospital.Doctor d
     JOIN Hospital.Staff s ON d.EMP_ID = s.EMP_ID
     GROUP BY s.IDDEPARTMENT
   ) LOOP
-    PIPE ROW (DepartmentDoctorCountRow(rec.DEPARTMENT_ID, rec.DOCTOR_COUNT));
+    departments.EXTEND;
+    departments(departments.COUNT) := DepartmentDoctorCountRow(
+      rec.DEPARTMENT_ID, rec.DOCTOR_COUNT
+    );
   END LOOP;
-  RETURN;
-END GetDoctorCountPerDepartment;
+END GetDoctorCountPerDepartmentProc;
 
-SELECT * FROM TABLE(GetDoctorCountPerDepartment());
+DECLARE
+  departments DepartmentDoctorCountTable;
+BEGIN
+  GetDoctorCountPerDepartmentProc(departments);
+  FOR i IN 1..departments.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('DEPARTMENT_ID: ' || departments(i).DEPARTMENT_ID ||
+                         ', DOCTOR_COUNT: ' || departments(i).DOCTOR_COUNT);
+  END LOOP;
+END;
 
 -- 18)
 -- Get the number of Technicians per Department
@@ -402,21 +421,31 @@ CREATE OR REPLACE TYPE DepartmentTechniciansCountRow AS OBJECT (
 
 CREATE OR REPLACE TYPE DepartmentTechniciansCountTable IS TABLE OF DepartmentTechniciansCountRow;
 
-CREATE OR REPLACE FUNCTION GetTechniciansCountPerDepartment
-  RETURN DepartmentTechniciansCountTable PIPELINED IS
+CREATE OR REPLACE PROCEDURE GetTechniciansCountPerDepartmentProc (departments OUT DepartmentTechniciansCountTable) IS
 BEGIN
+  departments := DepartmentTechniciansCountTable(); -- Initialize the collection
   FOR rec IN (
     SELECT s.IDDEPARTMENT AS DEPARTMENT_ID, COUNT(*) AS TECHNICIANS_COUNT
     FROM Hospital.Technician t
     JOIN Hospital.Staff s ON t.STAFF_EMP_ID = s.EMP_ID
     GROUP BY s.IDDEPARTMENT
   ) LOOP
-    PIPE ROW (DepartmentTechniciansCountRow(rec.DEPARTMENT_ID, rec.TECHNICIANS_COUNT));
+    departments.EXTEND;
+    departments(departments.COUNT) := DepartmentTechniciansCountRow(
+      rec.DEPARTMENT_ID, rec.TECHNICIANS_COUNT
+    );
   END LOOP;
-  RETURN;
-END GetTechniciansCountPerDepartment;
+END GetTechniciansCountPerDepartmentProc;
 
-SELECT * FROM TABLE(GetTechniciansCountPerDepartment());
+DECLARE
+  departments DepartmentTechniciansCountTable;
+BEGIN
+  GetTechniciansCountPerDepartmentProc(departments);
+  FOR i IN 1..departments.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE('DEPARTMENT_ID: ' || departments(i).DEPARTMENT_ID ||
+                         ', TECHNICIANS_COUNT: ' || departments(i).TECHNICIANS_COUNT);
+  END LOOP;
+END;
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -427,7 +456,7 @@ DECLARE
     max_id NUMBER;
 BEGIN
     -- Determine the current maximum IDPATIENT value
-    SELECT COALESCE(MAX(EMP_ID), 0) INTO max_id FROM Admin.STAFF;
+    SELECT COALESCE(MAX(EMP_ID), 0) INTO max_id FROM Hospital.STAFF;
 
     -- Create the sequence starting from the next value
     EXECUTE IMMEDIATE 'CREATE SEQUENCE staff_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
@@ -445,7 +474,7 @@ CREATE OR REPLACE PROCEDURE insert_hospital_staff_member (
     is_active_status VARCHAR2
 ) IS
 BEGIN
-    INSERT INTO Admin.STAFF (
+    INSERT INTO Hospital.STAFF (
         EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
     )
     VALUES (
@@ -463,13 +492,22 @@ BEGIN
     );
 END;
 
-
 -- Insert Department
 DECLARE
     max_id NUMBER;
 BEGIN
-    -- Determine the current maximum IDPATIENT value
-    SELECT COALESCE(MAX(IDDEPARTMENT), 0) INTO max_id FROM Admin.DEPARTMENT;
+    -- Determine the current maximum IDDEPARTMENT value
+    SELECT COALESCE(MAX(IDDEPARTMENT), 0) INTO max_id FROM Hospital.DEPARTMENT;
+
+    -- Drop the existing sequence if it exists
+    BEGIN
+        EXECUTE IMMEDIATE 'DROP SEQUENCE department_seq_new';
+    EXCEPTION
+        WHEN OTHERS THEN
+            IF SQLCODE != -2289 THEN -- ORA-02289: sequence does not exist
+                RAISE;
+            END IF;
+    END;
 
     -- Create the sequence starting from the next value
     EXECUTE IMMEDIATE 'CREATE SEQUENCE department_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
@@ -481,13 +519,13 @@ CREATE OR REPLACE PROCEDURE insert_hospital_department (
     emp_count NUMBER
 ) IS
 BEGIN
-    INSERT INTO Admin.DEPARTMENT (
+    INSERT INTO Hospital.DEPARTMENT (
         IDDEPARTMENT, DEPT_HEAD, DEPT_NAME, EMP_COUNT
     )
     VALUES (
-        department_seq_new.NEXTVAL, dept_head, dept_name,emp_count
+        department_seq_new.NEXTVAL, dept_head, dept_name, emp_count
     );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.DEPARTMENT');
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Hospital.DEPARTMENT');
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
@@ -497,13 +535,12 @@ BEGIN
     insert_hospital_department('Francisco', 'Informatica', 658);
 END;
 
-
 -- Insert Nurse
 DECLARE
     max_id NUMBER;
 BEGIN
     -- Determine the current maximum STAFF_EMP_ID value
-    SELECT COALESCE(MAX(STAFF_EMP_ID), 0) INTO max_id FROM Admin.NURSE;
+    SELECT COALESCE(MAX(STAFF_EMP_ID), 0) INTO max_id FROM Hospital.NURSE;
 
     -- Create the sequence starting from the next value
     EXECUTE IMMEDIATE 'CREATE SEQUENCE nurse_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
@@ -513,13 +550,13 @@ CREATE OR REPLACE PROCEDURE insert_nurse (
     staff_emp_id NUMBER
 ) IS
 BEGIN
-    INSERT INTO Admin.NURSE (
+    INSERT INTO Hospital.NURSE (
         STAFF_EMP_ID
     )
     VALUES (
         staff_emp_id
     );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.NURSE');
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Hospital.NURSE');
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
@@ -529,13 +566,12 @@ BEGIN
     insert_nurse(1);
 END;
 
-
 -- Insert Doctor
 DECLARE
     max_id NUMBER;
 BEGIN
     -- Determine the current maximum EMP_ID value in the DOCTOR table
-    SELECT COALESCE(MAX(EMP_ID), 0) INTO max_id FROM Admin.DOCTOR;
+    SELECT COALESCE(MAX(EMP_ID), 0) INTO max_id FROM Hospital.DOCTOR;
 
     -- Create the sequence starting from the next value
     EXECUTE IMMEDIATE 'CREATE SEQUENCE doctor_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
@@ -546,13 +582,13 @@ CREATE OR REPLACE PROCEDURE insert_doctor (
     qualifications VARCHAR2
 ) IS
 BEGIN
-    INSERT INTO Admin.DOCTOR (
+    INSERT INTO Hospital.DOCTOR (
         EMP_ID, QUALIFICATIONS
     )
     VALUES (
         emp_id, qualifications
     );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.DOCTOR');
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Hospital.DOCTOR');
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
@@ -562,13 +598,12 @@ BEGIN
     insert_doctor(1,'Cardiology');
 END;
 
-
 -- Insert Technician
 DECLARE
     max_id NUMBER;
 BEGIN
     -- Determine the current maximum STAFF_EMP_ID value in the TECHNICIAN table
-    SELECT COALESCE(MAX(STAFF_EMP_ID), 0) INTO max_id FROM Admin.TECHNICIAN;
+    SELECT COALESCE(MAX(STAFF_EMP_ID), 0) INTO max_id FROM Hospital.TECHNICIAN;
 
     -- Create the sequence starting from the next value
     EXECUTE IMMEDIATE 'CREATE SEQUENCE technician_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
@@ -578,13 +613,13 @@ CREATE OR REPLACE PROCEDURE insert_technician (
     staff_emp_id NUMBER
 ) IS
 BEGIN
-    INSERT INTO Admin.TECHNICIAN (
+    INSERT INTO Hospital.TECHNICIAN (
         STAFF_EMP_ID
     )
     VALUES (
         staff_emp_id
     );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Admin.TECHNICIAN');
+    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into Hospital.TECHNICIAN');
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
@@ -593,7 +628,6 @@ END;
 BEGIN
     insert_technician(1);
 END;
-
 
 -- Insert Staff and Nurse
 CREATE OR REPLACE PROCEDURE insert_staff_and_nurse (
@@ -610,7 +644,7 @@ CREATE OR REPLACE PROCEDURE insert_staff_and_nurse (
     emp_id NUMBER;
 BEGIN
     -- Insert staff member and get the new EMP_ID
-    INSERT INTO Admin.STAFF (
+    INSERT INTO Hospital.STAFF (
         EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
     )
     VALUES (
@@ -619,7 +653,7 @@ BEGIN
     RETURNING EMP_ID INTO emp_id;
 
     -- Insert into nurse table
-    INSERT INTO Admin.NURSE (STAFF_EMP_ID) VALUES (emp_id);
+    INSERT INTO Hospital.NURSE (STAFF_EMP_ID) VALUES (emp_id);
 
     DBMS_OUTPUT.PUT_LINE('Staff member and nurse inserted successfully.');
 EXCEPTION
@@ -633,7 +667,6 @@ BEGIN
         'Francisco', 'Claudino', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'claudino@gmail.com', 'A minha casa', 123456789, 5, 'Y'
     );
 END;
-
 
 -- Insert Staff and Doctor
 CREATE OR REPLACE PROCEDURE insert_staff_and_doctor (
@@ -651,7 +684,7 @@ CREATE OR REPLACE PROCEDURE insert_staff_and_doctor (
     emp_id NUMBER;
 BEGIN
     -- Insert staff member and get the new EMP_ID
-    INSERT INTO Admin.STAFF (
+    INSERT INTO Hospital.STAFF (
         EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
     )
     VALUES (
@@ -660,7 +693,7 @@ BEGIN
     RETURNING EMP_ID INTO emp_id;
 
     -- Insert into doctor table
-    INSERT INTO Admin.DOCTOR (EMP_ID, QUALIFICATIONS) VALUES (emp_id, qualifications);
+    INSERT INTO Hospital.DOCTOR (EMP_ID, QUALIFICATIONS) VALUES (emp_id, qualifications);
 
     DBMS_OUTPUT.PUT_LINE('Staff member and doctor inserted successfully.');
 EXCEPTION
@@ -674,7 +707,6 @@ BEGIN
         'John', 'Doe', TO_DATE('23.06.01', 'YY.MM.DD'), TO_DATE('23.12.31', 'YY.MM.DD'), 'john.doe@example.com', '123 Main St', 987654321, 3, 'Y', 'Cardiology'
     );
 END;
-
 
 -- Insert Staff and Techincian
 CREATE OR REPLACE PROCEDURE insert_staff_and_technician (
@@ -691,7 +723,7 @@ CREATE OR REPLACE PROCEDURE insert_staff_and_technician (
     emp_id NUMBER;
 BEGIN
     -- Insert staff member and get the new EMP_ID
-    INSERT INTO Admin.STAFF (
+    INSERT INTO Hospital.STAFF (
         EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
     )
     VALUES (
@@ -700,7 +732,7 @@ BEGIN
     RETURNING EMP_ID INTO emp_id;
 
     -- Insert into technician table
-    INSERT INTO Admin.TECHNICIAN (STAFF_EMP_ID) VALUES (emp_id);
+    INSERT INTO Hospital.TECHNICIAN (STAFF_EMP_ID) VALUES (emp_id);
 
     DBMS_OUTPUT.PUT_LINE('Staff member and technician inserted successfully.');
 EXCEPTION
@@ -714,9 +746,8 @@ BEGIN
     );
 END;
 
-
 -- Creation of the Table to detect what role the staff member has
-CREATE TABLE Admin.STAFF_ROLES (
+CREATE TABLE Hospital.STAFF_ROLES (
     EMP_ID NUMBER PRIMARY KEY,
     ROLE_TYPE VARCHAR2(10) NOT NULL
 );
@@ -737,7 +768,7 @@ CREATE OR REPLACE PROCEDURE insert_staff_with_role (
     emp_id NUMBER;
 BEGIN
     -- Insert staff member and get the new EMP_ID
-    INSERT INTO Admin.STAFF (
+    INSERT INTO Hospital.STAFF (
         EMP_ID, EMP_FNAME, EMP_LNAME, DATE_JOINING, DATE_SEPERATION, EMAIL, ADDRESS, SSN, IDDEPARTMENT, IS_ACTIVE_STATUS
     )
     VALUES (
@@ -746,7 +777,7 @@ BEGIN
     RETURNING EMP_ID INTO emp_id;
 
     -- Insert role information into the STAFF_ROLES table
-    INSERT INTO Admin.STAFF_ROLES (EMP_ID, ROLE_TYPE) VALUES (emp_id, role_type);
+    INSERT INTO Hospital.STAFF_ROLES (EMP_ID, ROLE_TYPE) VALUES (emp_id, role_type);
 
     DBMS_OUTPUT.PUT_LINE('Staff member and role inserted successfully.');
 EXCEPTION
@@ -754,15 +785,33 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
 END;
 
+-- Trigger for Inserting a Deppartment
+CREATE TABLE Hospital.New_Department_Requests (
+    request_id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    dept_head VARCHAR2(45),
+    dept_name VARCHAR2(45),
+    emp_count NUMBER
+);
+
+CREATE OR REPLACE TRIGGER trg_insert_department
+AFTER INSERT ON Hospital.New_Department_Requests
+FOR EACH ROW
+BEGIN
+    insert_hospital_department(:NEW.dept_head, :NEW.dept_name, :NEW.emp_count);
+END;
+
+INSERT INTO Hospital.New_Department_Requests (dept_head, dept_name, emp_count)
+VALUES ('Francisco', 'Informatica', 658);
+
 -- Trigger for Inserting a Staff Member and a Nurse
 CREATE OR REPLACE TRIGGER trg_insert_staff_and_nurse
-AFTER INSERT ON Admin.STAFF
+AFTER INSERT ON Hospital.STAFF
 FOR EACH ROW
 DECLARE
     role_type VARCHAR2(10);
 BEGIN
     -- Get the role type from the STAFF_ROLES table
-    SELECT ROLE_TYPE INTO role_type FROM Admin.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
+    SELECT ROLE_TYPE INTO role_type FROM Hospital.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
 
     -- If the role type is 'NURSE', call the insert_staff_and_nurse procedure
     IF role_type = 'NURSE' THEN
@@ -787,16 +836,15 @@ BEGIN
     );
 END;
 
-
 -- Trigger to insert Staff and Doctor
 CREATE OR REPLACE TRIGGER trg_insert_staff_and_doctor
-AFTER INSERT ON Admin.STAFF
+AFTER INSERT ON Hospital.STAFF
 FOR EACH ROW
 DECLARE
     role_type VARCHAR2(10);
 BEGIN
     -- Get the role type from the STAFF_ROLES table
-    SELECT ROLE_TYPE INTO role_type FROM Admin.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
+    SELECT ROLE_TYPE INTO role_type FROM Hospital.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
 
     -- If the role type is 'DOCTOR', call the insert_staff_and_doctor procedure
     IF role_type = 'DOCTOR' THEN
@@ -821,16 +869,15 @@ BEGIN
     );
 END;
 
-
 -- Trigger to insert staff and technician
 CREATE OR REPLACE TRIGGER trg_insert_staff_and_technician
-AFTER INSERT ON Admin.STAFF
+AFTER INSERT ON Hospital.STAFF
 FOR EACH ROW
 DECLARE
     role_type VARCHAR2(10);
 BEGIN
     -- Get the role type from the STAFF_ROLES table
-    SELECT ROLE_TYPE INTO role_type FROM Admin.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
+    SELECT ROLE_TYPE INTO role_type FROM Hospital.STAFF_ROLES WHERE EMP_ID = :NEW.EMP_ID;
 
     -- If the role type is 'TECHNICIAN', call the insert_staff_and_technician procedure
     IF role_type = 'TECHNICIAN' THEN
@@ -854,12 +901,491 @@ BEGIN
     );
 END;
 
-
 ---------------------------------------------------------------------------------------------------------------
 
 -- UPDATES
 
+-- Update Staff Member
+CREATE OR REPLACE PROCEDURE UpdateStaffInfoProc (
+    p_emp_id          IN NUMBER,
+    p_emp_fname       IN VARCHAR2,
+    p_emp_lname       IN VARCHAR2,
+    p_date_joining    IN DATE,
+    p_date_seperation IN DATE,
+    p_email           IN VARCHAR2,
+    p_address         IN VARCHAR2,
+    p_ssn             IN NUMBER,
+    p_iddepartment    IN NUMBER,
+    p_is_active_status IN VARCHAR2
+) IS
+BEGIN
+  UPDATE Hospital.Staff
+  SET emp_fname       = p_emp_fname,
+      emp_lname       = p_emp_lname,
+      date_joining    = p_date_joining,
+      date_seperation = p_date_seperation,
+      email           = p_email,
+      address         = p_address,
+      ssn             = p_ssn,
+      iddepartment    = p_iddepartment,
+      is_active_status = p_is_active_status
+  WHERE emp_id = p_emp_id;
+END UpdateStaffInfoProc;
+
+BEGIN
+  UpdateStaffInfoProc(
+    p_emp_id          => 1,
+    p_emp_fname       => 'John',
+    p_emp_lname       => 'Doe',
+    p_date_joining    => TO_DATE('2023-01-01', 'YYYY-MM-DD'),
+    p_date_seperation => TO_DATE('2023-12-31', 'YYYY-MM-DD'),
+    p_email           => 'john.doe@example.com',
+    p_address         => '123 Main St',
+    p_ssn             => 123456789,
+    p_iddepartment    => 2,
+    p_is_active_status => 'Y'
+  );
+END;
+
+-- Update Department
+CREATE OR REPLACE PROCEDURE UpdateDepartmentInfoProc (
+    p_iddepartment IN NUMBER,
+    p_dept_head    IN VARCHAR2,
+    p_dept_name    IN VARCHAR2,
+    p_emp_count    IN NUMBER
+) IS
+BEGIN
+  UPDATE Hospital.Department
+  SET dept_head    = p_dept_head,
+      dept_name    = p_dept_name,
+      emp_count    = p_emp_count
+  WHERE iddepartment = p_iddepartment;
+END UpdateDepartmentInfoProc;
+
+BEGIN
+  UpdateDepartmentInfoProc(
+    p_iddepartment => 1,
+    p_dept_head    => 'Dr. Smith',
+    p_dept_name    => 'Cardiology',
+    p_emp_count    => 50
+  );
+END;
+
+-- Update Nurse não faz sentido, pois a tabela só tem Id
+
+-- Update Doctor
+CREATE OR REPLACE PROCEDURE UpdateDoctorInfoProc (
+    p_emp_id        IN NUMBER,
+    p_qualifications IN VARCHAR2
+) IS
+BEGIN
+  UPDATE Hospital.Doctor
+  SET qualifications = p_qualifications
+  WHERE emp_id = p_emp_id;
+END UpdateDoctorInfoProc;
+
+BEGIN
+  UpdateDoctorInfoProc(
+    p_emp_id        => 1,
+    p_qualifications => 'Cardiology'
+  );
+END;
+
+-- Update Technician não faz sentido, pois a tabela só tem Id
+
+-- Update Staff and Nurse
+CREATE OR REPLACE PROCEDURE UpdateStaffAndNurse (
+    p_emp_id          IN NUMBER,
+    p_emp_fname       IN VARCHAR2,
+    p_emp_lname       IN VARCHAR2,
+    p_date_joining    IN DATE,
+    p_date_seperation IN DATE,
+    p_email           IN VARCHAR2,
+    p_address         IN VARCHAR2,
+    p_ssn             IN NUMBER,
+    p_iddepartment    IN NUMBER,
+    p_is_active_status IN VARCHAR2,
+    p_staff_emp_id    IN NUMBER
+) IS
+BEGIN
+    -- Update the staff table
+    UPDATE Hospital.Staff
+    SET emp_fname       = p_emp_fname,
+        emp_lname       = p_emp_lname,
+        date_joining    = p_date_joining,
+        date_seperation = p_date_seperation,
+        email           = p_email,
+        address         = p_address,
+        ssn             = p_ssn,
+        iddepartment    = p_iddepartment,
+        is_active_status = p_is_active_status
+    WHERE emp_id = p_emp_id;
+
+    -- Update the nurse table
+    UPDATE Hospital.Nurse
+    SET staff_emp_id = p_staff_emp_id
+    WHERE staff_emp_id = p_emp_id;
+
+    DBMS_OUTPUT.PUT_LINE('Record updated successfully in Hospital.Staff and Hospital.Nurse');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+  UpdateStaffAndNurse(
+    p_emp_id          => 1,
+    p_emp_fname       => 'John',
+    p_emp_lname       => 'Doe',
+    p_date_joining    => TO_DATE('2023-01-01', 'YYYY-MM-DD'),
+    p_date_seperation => TO_DATE('2023-12-31', 'YYYY-MM-DD'),
+    p_email           => 'john.doe@example.com',
+    p_address         => '123 Main St',
+    p_ssn             => 123456789,
+    p_iddepartment    => 2,
+    p_is_active_status => 'Y',
+    p_staff_emp_id    => 1
+  );
+END;
+
+-- Update Staff and Doctor
+CREATE OR REPLACE PROCEDURE UpdateStaffAndDoctor (
+    p_emp_id          IN NUMBER,
+    p_emp_fname       IN VARCHAR2,
+    p_emp_lname       IN VARCHAR2,
+    p_date_joining    IN DATE,
+    p_date_seperation IN DATE,
+    p_email           IN VARCHAR2,
+    p_address         IN VARCHAR2,
+    p_ssn             IN NUMBER,
+    p_iddepartment    IN NUMBER,
+    p_is_active_status IN VARCHAR2
+) IS
+    v_qualifications VARCHAR2(45);
+BEGIN
+    -- Fetch qualifications from the Doctor table
+    SELECT qualifications INTO v_qualifications
+    FROM Hospital.Doctor
+    WHERE emp_id = p_emp_id;
+
+    -- Update the staff table
+    UPDATE Hospital.Staff
+    SET emp_fname       = p_emp_fname,
+        emp_lname       = p_emp_lname,
+        date_joining    = p_date_joining,
+        date_seperation = p_date_seperation,
+        email           = p_email,
+        address         = p_address,
+        ssn             = p_ssn,
+        iddepartment    = p_iddepartment,
+        is_active_status = p_is_active_status
+    WHERE emp_id = p_emp_id;
+
+    -- Update the doctor table
+    UPDATE Hospital.Doctor
+    SET qualifications = v_qualifications
+    WHERE emp_id = p_emp_id;
+
+    DBMS_OUTPUT.PUT_LINE('Record updated successfully in Hospital.Staff and Hospital.Doctor');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+  UpdateStaffAndDoctor(
+    p_emp_id          => 1,
+    p_emp_fname       => 'Jane',
+    p_emp_lname       => 'Smith',
+    p_date_joining    => TO_DATE('2023-01-01', 'YYYY-MM-DD'),
+    p_date_seperation => TO_DATE('2023-12-31', 'YYYY-MM-DD'),
+    p_email           => 'jane.smith@example.com',
+    p_address         => '456 Elm St',
+    p_ssn             => 987654321,
+    p_iddepartment    => 3,
+    p_is_active_status => 'Y',
+    p_qualifications  => 'Cardiology'
+  );
+END;
+
+-- Update Staff and Technician
+CREATE OR REPLACE PROCEDURE UpdateStaffAndTechnician (
+    p_emp_id          IN NUMBER,
+    p_emp_fname       IN VARCHAR2,
+    p_emp_lname       IN VARCHAR2,
+    p_date_joining    IN DATE,
+    p_date_seperation IN DATE,
+    p_email           IN VARCHAR2,
+    p_address         IN VARCHAR2,
+    p_ssn             IN NUMBER,
+    p_iddepartment    IN NUMBER,
+    p_is_active_status IN VARCHAR2,
+    p_staff_emp_id    IN NUMBER
+) IS
+BEGIN
+    -- Update the staff table
+    UPDATE Hospital.Staff
+    SET emp_fname       = p_emp_fname,
+        emp_lname       = p_emp_lname,
+        date_joining    = p_date_joining,
+        date_seperation = p_date_seperation,
+        email           = p_email,
+        address         = p_address,
+        ssn             = p_ssn,
+        iddepartment    = p_iddepartment,
+        is_active_status = p_is_active_status
+    WHERE emp_id = p_emp_id;
+
+    -- Update the technician table
+    UPDATE Hospital.Technician
+    SET staff_emp_id = p_staff_emp_id
+    WHERE staff_emp_id = p_emp_id;
+
+    DBMS_OUTPUT.PUT_LINE('Record updated successfully in Hospital.Staff and Hospital.Technician');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+  UpdateStaffAndTechnician(
+    p_emp_id          => 1,
+    p_emp_fname       => 'Michael',
+    p_emp_lname       => 'Brown',
+    p_date_joining    => TO_DATE('2023-01-01', 'YYYY-MM-DD'),
+    p_date_seperation => TO_DATE('2023-12-31', 'YYYY-MM-DD'),
+    p_email           => 'michael.brown@example.com',
+    p_address         => '789 Oak St',
+    p_ssn             => 112233445,
+    p_iddepartment    => 4,
+    p_is_active_status => 'Y',
+    p_staff_emp_id    => 1
+  );
+END;
+
+-- Trigger to Update Department
+CREATE OR REPLACE TRIGGER trg_update_department
+BEFORE UPDATE ON Hospital.Department
+FOR EACH ROW
+BEGIN
+    UpdateDepartmentInfoProc(
+        p_iddepartment => :NEW.iddepartment,
+        p_dept_head    => :NEW.dept_head,
+        p_dept_name    => :NEW.dept_name,
+        p_emp_count    => :NEW.emp_count
+    );
+END;
+
+-- Assume there is a record in Hospital.Department with iddepartment = 1
+UPDATE Hospital.Department
+SET dept_head = 'New Head', dept_name = 'New Department Name', emp_count = 100
+WHERE iddepartment = 1;
+
+-- Trigger to Update Staff and Nurse
+CREATE OR REPLACE TRIGGER trg_update_staff_and_nurse
+BEFORE UPDATE ON Hospital.Staff
+FOR EACH ROW
+BEGIN
+    -- Assuming a matching record in the Nurse table
+    UpdateStaffAndNurse(
+        p_emp_id          => :NEW.emp_id,
+        p_emp_fname       => :NEW.emp_fname,
+        p_emp_lname       => :NEW.emp_lname,
+        p_date_joining    => :NEW.date_joining,
+        p_date_seperation => :NEW.date_seperation,
+        p_email           => :NEW.email,
+        p_address         => :NEW.address,
+        p_ssn             => :NEW.ssn,
+        p_iddepartment    => :NEW.iddepartment,
+        p_is_active_status => :NEW.is_active_status,
+        p_staff_emp_id    => :NEW.emp_id
+    );
+END;
+
+-- Assume there is a record in Hospital.Staff with emp_id = 1
+UPDATE Hospital.Staff
+SET emp_fname = 'Updated FirstName', emp_lname = 'Updated LastName', date_joining = TO_DATE('2023-01-01', 'YYYY-MM-DD'),
+    date_seperation = TO_DATE('2023-12-31', 'YYYY-MM-DD'), email = 'updated.email@example.com', address = 'Updated Address',
+    ssn = 123456789, iddepartment = 2, is_active_status = 'Y'
+WHERE emp_id = 1;
+
+
+-- Trigger to Update Staff and Doctor
+CREATE OR REPLACE TRIGGER trg_update_staff_and_doctor
+BEFORE UPDATE ON Hospital.Staff
+FOR EACH ROW
+BEGIN
+    -- Assuming a matching record in the Doctor table
+    UpdateStaffAndDoctor(
+        p_emp_id          => :NEW.emp_id,
+        p_emp_fname       => :NEW.emp_fname,
+        p_emp_lname       => :NEW.emp_lname,
+        p_date_joining    => :NEW.date_joining,
+        p_date_seperation => :NEW.date_seperation,
+        p_email           => :NEW.email,
+        p_address         => :NEW.address,
+        p_ssn             => :NEW.ssn,
+        p_iddepartment    => :NEW.iddepartment,
+        p_is_active_status => :NEW.is_active_status
+    );
+END;
+
+-- Assume there is a record in Hospital.Staff with emp_id = 2, and a matching record in Hospital.Doctor
+UPDATE Hospital.Staff
+SET emp_fname = 'Updated Doctor FirstName', emp_lname = 'Updated Doctor LastName', date_joining = TO_DATE('2023-02-01', 'YYYY-MM-DD'),
+    date_seperation = TO_DATE('2023-11-30', 'YYYY-MM-DD'), email = 'doctor.email@example.com', address = 'Doctor Address',
+    ssn = 987654321, iddepartment = 3, is_active_status = 'N'
+WHERE emp_id = 2;
+
+
+-- Trigger to Update Staff and Technician
+CREATE OR REPLACE TRIGGER trg_update_staff_and_technician
+BEFORE UPDATE ON Hospital.Staff
+FOR EACH ROW
+BEGIN
+    -- Assuming a matching record in the Technician table
+    UpdateStaffAndTechnician(
+        p_emp_id          => :NEW.emp_id,
+        p_emp_fname       => :NEW.emp_fname,
+        p_emp_lname       => :NEW.emp_lname,
+        p_date_joining    => :NEW.date_joining,
+        p_date_seperation => :NEW.date_seperation,
+        p_email           => :NEW.email,
+        p_address         => :NEW.address,
+        p_ssn             => :NEW.ssn,
+        p_iddepartment    => :NEW.iddepartment,
+        p_is_active_status => :NEW.is_active_status,
+        p_staff_emp_id    => :NEW.emp_id
+    );
+END;
+
+-- Assume there is a record in Hospital.Staff with emp_id = 3, and a matching record in Hospital.Technician
+UPDATE Hospital.Staff
+SET emp_fname = 'Updated Technician FirstName', emp_lname = 'Updated Technician LastName', date_joining = TO_DATE('2023-03-01', 'YYYY-MM-DD'),
+    date_seperation = TO_DATE('2023-10-31', 'YYYY-MM-DD'), email = 'technician.email@example.com', address = 'Technician Address',
+    ssn = 123987456, iddepartment = 4, is_active_status = 'Y'
+WHERE emp_id = 3;
 
 ---------------------------------------------------------------------------------------------------------------
 
 -- DELETES
+
+-- Delete a Staff Member and Nurse
+CREATE OR REPLACE PROCEDURE DeleteStaffAndNurse (
+    p_emp_id IN NUMBER
+) IS
+BEGIN
+    -- Delete from Nurse table if exists
+    DELETE FROM Hospital.Nurse
+    WHERE staff_emp_id = p_emp_id;
+
+    -- Delete from Staff table
+    DELETE FROM Hospital.Staff
+    WHERE emp_id = p_emp_id;
+
+    -- Decrement the employee count in the Department table
+    UPDATE Hospital.Department
+    SET emp_count = emp_count - 1
+    WHERE iddepartment = (
+        SELECT iddepartment
+        FROM Hospital.Staff
+        WHERE emp_id = p_emp_id
+    );
+
+    DBMS_OUTPUT.PUT_LINE('Staff member and related nurse record deleted successfully, department count updated');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    DeleteStaffAndNurse(p_emp_id => 1);
+END;
+
+-- Delete a Staff Member and Doctor
+CREATE OR REPLACE PROCEDURE DeleteStaffAndDoctor (
+    p_emp_id IN NUMBER
+) IS
+BEGIN
+    -- Delete from Doctor table if exists
+    DELETE FROM Hospital.Doctor
+    WHERE emp_id = p_emp_id;
+
+    -- Delete from Staff table
+    DELETE FROM Hospital.Staff
+    WHERE emp_id = p_emp_id;
+
+    -- Decrement the employee count in the Department table
+    UPDATE Hospital.Department
+    SET emp_count = emp_count - 1
+    WHERE iddepartment = (
+        SELECT iddepartment
+        FROM Hospital.Staff
+        WHERE emp_id = p_emp_id
+    );
+
+    DBMS_OUTPUT.PUT_LINE('Staff member and related doctor record deleted successfully, department count updated');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    DeleteStaffAndDoctor(p_emp_id => 2);
+END;
+
+-- Delete a Staff Member and Technician
+CREATE OR REPLACE PROCEDURE DeleteStaffAndTechnician (
+    p_emp_id IN NUMBER
+) IS
+BEGIN
+    -- Delete from Technician table if exists
+    DELETE FROM Hospital.Technician
+    WHERE staff_emp_id = p_emp_id;
+
+    -- Delete from Staff table
+    DELETE FROM Hospital.Staff
+    WHERE emp_id = p_emp_id;
+
+    -- Decrement the employee count in the Department table
+    UPDATE Hospital.Department
+    SET emp_count = emp_count - 1
+    WHERE iddepartment = (
+        SELECT iddepartment
+        FROM Hospital.Staff
+        WHERE emp_id = p_emp_id
+    );
+
+    DBMS_OUTPUT.PUT_LINE('Staff member and related technician record deleted successfully, department count updated');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    DeleteStaffAndTechnician(p_emp_id => 3);
+END;
+
+-- Delete a Department
+CREATE OR REPLACE PROCEDURE DeleteDepartmentAndUpdateStaff (
+    p_iddepartment IN NUMBER
+) IS
+BEGIN
+    -- Update the staff members to set iddepartment to 0
+    UPDATE Hospital.Staff
+    SET iddepartment = 0
+    WHERE iddepartment = p_iddepartment;
+
+    -- Delete the department
+    DELETE FROM Hospital.Department
+    WHERE iddepartment = p_iddepartment;
+
+    DBMS_OUTPUT.PUT_LINE('Department deleted and staff members updated successfully');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+BEGIN
+    DeleteDepartmentAndUpdateStaff(p_iddepartment => 1);
+END;
