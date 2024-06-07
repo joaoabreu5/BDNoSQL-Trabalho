@@ -6,8 +6,11 @@
             }
         },
         {
-            "fullDocument": {
-                "$exists": true
+            "operationType": {
+                "$in": [
+                    "insert",
+                    "replace"
+                ]
             }
         }
     ]
