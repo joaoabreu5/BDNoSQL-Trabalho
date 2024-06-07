@@ -268,7 +268,8 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
 
 
 def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, 
-        database_name: str, collection_name : str, field_name : str | tuple, trigger_template : jinja2.Template):
+                          database_name: str, collection_name : str, field_name : str | tuple, 
+                          trigger_template : jinja2.Template, match_exp_template : jinja2.Template):
     
     if len(field_name) == 1:
         field_name = field_name[0]
@@ -276,6 +277,7 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
     if isinstance(field_name, str):
         trigger_name = f'{field_name}_trigger'
         trigger_code = trigger_template.render(service_name=service_name, field_name=field_name)
+        trigger_match_exp = json.loads(match_exp_template.render(field_name=field_name))
         
     elif len(field_name) == 2:
         list_name, list_obj_field_name = field_name
@@ -283,6 +285,8 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
         trigger_name = f'{list_name}_{list_obj_field_name}_trigger'
         trigger_code = trigger_template.render(service_name=service_name, 
                                                list_name=list_name, obj_field_name=list_obj_field_name)
+        trigger_match_exp = {}
+    
     
     function_data = {
         'name': f'{trigger_name}_function',
@@ -298,6 +302,7 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
             'database': database_name,
             'collection': collection_name,
             'operation_types': ['INSERT', 'UPDATE', 'REPLACE'],
+            'match': trigger_match_exp,
             'tolerate_resume_errors': True
         }
     }
@@ -347,21 +352,23 @@ def create_triggers(access_token: str, groupId : str, appId : str, service_id : 
     j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=TRIGGERS_DIR_PATH))
     
     seq_id_trigger_template = j2_env.get_template('seq_id_trigger.js.j2')
+    seq_id_trigger_match_exp_template = j2_env.get_template('seq_id_trigger_match_exp.json.j2')
+    
     seq_id_list_trigger_template = j2_env.get_template('seq_id_list_trigger.js.j2')
     
     seq_id_triggers_coll_field = (
-        (patients_coll_name, 'id_patient', seq_id_trigger_template),
-        (episodes_coll_name, 'id_episode', seq_id_trigger_template),
-        (staff_coll_name, 'emp_id', seq_id_trigger_template),
-        (patients_coll_name, ('medical_history', 'record_id'), seq_id_list_trigger_template),
-        (episodes_coll_name, ('bills', 'id_bill'), seq_id_list_trigger_template),
-        (episodes_coll_name, ('prescriptions', 'id_prescription'), seq_id_list_trigger_template),
-        (episodes_coll_name, ('lab_screenings', 'lab_id'), seq_id_list_trigger_template)
+        (patients_coll_name, 'id_patient', seq_id_trigger_template, seq_id_trigger_match_exp_template),
+        (episodes_coll_name, 'id_episode', seq_id_trigger_template, seq_id_trigger_match_exp_template),
+        (staff_coll_name, 'emp_id', seq_id_trigger_template, seq_id_trigger_match_exp_template),
+        (patients_coll_name, ('medical_history', 'record_id'), seq_id_list_trigger_template, None),
+        (episodes_coll_name, ('bills', 'id_bill'), seq_id_list_trigger_template, None),
+        (episodes_coll_name, ('prescriptions', 'id_prescription'), seq_id_list_trigger_template, None),
+        (episodes_coll_name, ('lab_screenings', 'lab_id'), seq_id_list_trigger_template, None)
     )
     
-    for coll_name, field_name, trigger_template in seq_id_triggers_coll_field:
-        create_seq_id_trigger(access_token, groupId, appId, service_id, service_name, database_name, 
-                              coll_name, field_name, trigger_template)
+    for coll_name, field_name, trigger_template, match_exp_template in seq_id_triggers_coll_field:
+        create_seq_id_trigger(access_token, groupId, appId, service_id, service_name, 
+                              database_name, coll_name, field_name, trigger_template, match_exp_template)
     
     create_trg_generate_bill(access_token, groupId, appId, service_id, service_name, database_name, coll_name, j2_env)
     

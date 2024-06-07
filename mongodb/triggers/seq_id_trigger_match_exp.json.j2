@@ -1,0 +1,14 @@
+{
+    "$or": [
+        {
+            "updateDescription.updatedFields.{{ field_name }}": {
+                "$exists": true
+            }
+        },
+        {
+            "fullDocument": {
+                "$exists": true
+            }
+        }
+    ]
+}
