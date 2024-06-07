@@ -1,16 +1,16 @@
 {
     "$or": [
         {
-            "updateDescription.updatedFields.{{ field_name }}": {
-                "$exists": true
-            }
-        },
-        {
             "operationType": {
                 "$in": [
                     "insert",
                     "replace"
                 ]
+            }
+        },
+        {
+            "updateDescription.updatedFields.{{ field_name }}": {
+                "$exists": true
             }
         }
     ]

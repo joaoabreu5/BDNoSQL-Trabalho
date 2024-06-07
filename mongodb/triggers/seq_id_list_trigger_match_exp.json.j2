@@ -1,0 +1,34 @@
+{
+    "$or": [
+        {
+            "operationType": {
+                "$in": [
+                    "insert",
+                    "replace"
+                ]
+            }
+        },
+        {
+            "$expr": {
+                "$gt": [
+                    {
+                        "$size": {
+                            "$filter": {
+                                "input": {
+                                    "$objectToArray": "$updateDescription.updatedFields"
+                                },
+                                "cond": {
+                                    "$regexMatch": {
+                                        "input": "$$this.k",
+                                        "regex": "^{{ list_name }}\\.[0-9]+(\\.{{ obj_field_name }})?$"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    0
+                ]
+            }
+        }
+    ]
+}

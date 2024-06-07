@@ -35,8 +35,8 @@ exports = async function(changeEvent) {
         const operationType = changeEvent.operationType;
 
         if (operationType === 'update') {
-            const regexObject = new RegExp(`^${listName}\\.\\d+$`);
-            const regexObjectField = new RegExp(`^${listName}\\.\\d+\\.${objFieldName}$`);
+            const regexObject = new RegExp(`^${listName}\\.[0-9]+$`);
+            const regexObjectField = new RegExp(`^${listName}\\.[0-9]+\\.${objFieldName}$`);
 
             const updatedFields = changeEvent.updateDescription.updatedFields;
 
