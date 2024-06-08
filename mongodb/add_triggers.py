@@ -278,6 +278,7 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
         trigger_name = f'{field_name}_trigger'
         trigger_code = trigger_template.render(service_name=service_name, field_name=field_name)
         trigger_match_exp = json.loads(match_exp_template.render(field_name=field_name))
+        full_document_before_change = True
         
     elif len(field_name) == 2:
         list_name, list_obj_field_name = field_name
@@ -286,6 +287,10 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
         trigger_code = trigger_template.render(service_name=service_name, 
                                                list_name=list_name, obj_field_name=list_obj_field_name)
         trigger_match_exp = json.loads(match_exp_template.render(list_name=list_name, obj_field_name=list_obj_field_name))
+        full_document_before_change = False
+    
+    else:
+        return
     
     
     function_data = {
@@ -303,6 +308,7 @@ def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service
             'collection': collection_name,
             'operation_types': ['INSERT', 'UPDATE', 'REPLACE'],
             'match': trigger_match_exp,
+            'full_document_before_change': full_document_before_change,
             'tolerate_resume_errors': True
         }
     }

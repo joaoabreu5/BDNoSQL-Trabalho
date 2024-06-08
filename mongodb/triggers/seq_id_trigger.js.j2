@@ -2,9 +2,34 @@ function stringify(object) {
     return JSON.stringify(object).replaceAll('"', "'").replaceAll(':', ': ').replaceAll(',', ', ');
 }
 
+async function incrementCounter(countersCollection, countersCollName, countersQuery, countersFieldName) {
+    const newCounterValue = (await countersCollection.findOneAndUpdate(
+        countersQuery,
+        {
+            $inc: { [countersFieldName]: 1 }
+        },
+        {
+            returnNewDocument: true,
+            upsert: true,
+            projection: { [countersFieldName]: 1, _id: 0 }
+        }
+    ))[countersFieldName];
+
+    console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} incrementado (em 1 unidade) para ${newCounterValue}.`);
+
+    return newCounterValue;
+}
+
+async function updateDocument(documentCollection, collectionName, documentQuery, fieldName, newFieldValue) {
+    await documentCollection.updateOne(documentQuery, { $set: { [fieldName]: newFieldValue } });
+
+    console.log(`Coleção '${collectionName}': campo '${fieldName}' adicionado ao documento ${stringify(documentQuery)}, com valor igual a ${newFieldValue}.`);
+}
+
 exports = async function(changeEvent) {
     try {
         const fullDocument = changeEvent.fullDocument;
+        const fullDocumentBeforeChange = changeEvent.fullDocumentBeforeChange;
         const docId = changeEvent.documentKey._id;
 
         const serviceName = '{{ service_name }}';
@@ -14,10 +39,12 @@ exports = async function(changeEvent) {
         
         const countersCollName = 'counters'
         const countersFieldName = 'seq'
+
         const countersCollection = context.services.get(serviceName).db(databaseName).collection(countersCollName);
-        
         const countersQuery = { field: fieldName, col: collectionName };
-        
+
+        const documentCollection = context.services.get(serviceName).db(databaseName).collection(collectionName);
+        const documentQuery = { _id: docId };
 
         let fieldValue;
         const operationType = changeEvent.operationType;
@@ -47,29 +74,24 @@ exports = async function(changeEvent) {
                 console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} atualizado de ${oldCounterValue} para ${fieldValue}.`);
             }
         }
-        else if (operationType !== 'update') {    // operationType === 'insert' || operationType === 'replace'
-            const newCounterValue = (await countersCollection.findOneAndUpdate(
-                countersQuery,
-                {
-                    $inc: { [countersFieldName]: 1 }
-                },
-                {
-                    returnNewDocument: true,
-                    upsert: true,
-                    projection: { [countersFieldName]: 1, _id: 0 }
-                }
-            ))[countersFieldName];
+        else if (operationType === 'insert') {
+            const newFieldValue = await incrementCounter(countersCollection, countersCollName, countersQuery, countersFieldName);
 
-            console.log(`Coleção '${countersCollName}': valor do campo '${countersFieldName}' do contador ${stringify(countersQuery)} incrementado (em 1 unidade) para ${newCounterValue}.`);
-
-            const documentCollection = context.services.get(serviceName).db(databaseName).collection(collectionName);
-            const documentQuery = { _id: docId };
-
-            await documentCollection.updateOne(documentQuery, { $set: { [fieldName]: newCounterValue } });
-
-            console.log(`Coleção '${collectionName}': campo '${fieldName}' adicionado ao documento ${stringify(documentQuery)}, com valor igual a ${newCounterValue}.`);
+            await updateDocument(documentCollection, collectionName, documentQuery, fieldName, newFieldValue)
         }
+        else if (operationType === 'replace') {
+            let newFieldValue;
+            const previousFieldValue = fullDocumentBeforeChange[fieldName];
 
+            if (previousFieldValue) {
+                newFieldValue = previousFieldValue;
+            }
+            else {
+                newFieldValue = await incrementCounter(countersCollection, countersCollName, countersQuery, countersFieldName);
+            }
+
+            await updateDocument(documentCollection, collectionName, documentQuery, fieldName, newFieldValue)
+        }
     } catch (err) {
         console.error('Erro ao executar o trigger: ', err.message);
     }
