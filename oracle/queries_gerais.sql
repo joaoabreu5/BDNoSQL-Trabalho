@@ -594,11 +594,11 @@ BEGIN
     )
   BULK COLLECT INTO result
   FROM 
-    Admin.APPOINTMENT a
+    Hospital.APPOINTMENT a
   JOIN 
-    Admin.EPISODE e ON a.IDEPISODE = e.IDEPISODE
+    Hospital.EPISODE e ON a.IDEPISODE = e.IDEPISODE
   JOIN 
-    Admin.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT;
+    Hospital.PATIENT p ON e.PATIENT_IDPATIENT = p.IDPATIENT;
 END ListAppointmentPatientInfoProc;
 
 
@@ -641,12 +641,12 @@ BEGIN
            COUNT(a.APPOINTMENT_DATE) OVER (PARTITION BY d.EMP_ID) AS APPOINTMENT_COUNT, a.APPOINTMENT_DATE,
            p.PATIENT_FNAME || ' ' || p.PATIENT_LNAME AS PATIENT_FULL_NAME, 
            p.BLOOD_TYPE AS PATIENT_BLOOD_TYPE, p.GENDER AS PATIENT_GENDER, m.CONDITION AS PATIENT_CONDITION
-    FROM Admin.Appointment a
-    JOIN Admin.Doctor d ON a.IDDOCTOR = d.EMP_ID
-    JOIN Admin.Staff s ON d.EMP_ID = s.EMP_ID
-    JOIN Admin.Episode e ON a.IDEPISODE = e.IDEPISODE
-    JOIN Admin.Patient p ON e.PATIENT_IDPATIENT = p.IDPATIENT
-    JOIN Admin.Medical_History m ON p.IDPATIENT = m.IDPATIENT
+    FROM Hospital.Appointment a
+    JOIN Hospital.Doctor d ON a.IDDOCTOR = d.EMP_ID
+    JOIN Hospital.Staff s ON d.EMP_ID = s.EMP_ID
+    JOIN Hospital.Episode e ON a.IDEPISODE = e.IDEPISODE
+    JOIN Hospital.Patient p ON e.PATIENT_IDPATIENT = p.IDPATIENT
+    JOIN Hospital.Medical_History m ON p.IDPATIENT = m.IDPATIENT
     ORDER BY d.EMP_ID, a.APPOINTMENT_DATE
   ) LOOP
     doctor_appointments.EXTEND;

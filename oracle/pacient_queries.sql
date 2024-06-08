@@ -805,156 +805,413 @@ END;
 
 -- INSERTS
 
--- Insert Pacient
+-- 1)
+-- Insert Pacient, Insursance, Emergency Contact and Medical History
 DECLARE
     max_id NUMBER;
 BEGIN
     -- Determine the current maximum IDPATIENT value
-    SELECT COALESCE(MAX(IDPATIENT), 0) INTO max_id FROM HOSPITAL.PATIENT;
+    SELECT COALESCE(MAX(IDPATIENT), 0) INTO max_id FROM Hospital.PATIENT;
+
+    -- Drop the existing sequence if it exists
+    BEGIN
+        EXECUTE IMMEDIATE 'DROP SEQUENCE patient_seq_new';
+    EXCEPTION
+        WHEN OTHERS THEN
+            IF SQLCODE != -2289 THEN -- ORA-02289: sequence does not exist
+                RAISE;
+            END IF;
+    END;
 
     -- Create the sequence starting from the next value
     EXECUTE IMMEDIATE 'CREATE SEQUENCE patient_seq_new START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
 END;
 
-CREATE OR REPLACE PROCEDURE insert_hospital_patient_new2 (
+CREATE OR REPLACE PROCEDURE insert_patient (
     p_patient_fname VARCHAR2,
     p_patient_lname VARCHAR2,
-    p_blood_type VARCHAR2,
-    p_email VARCHAR2,
-    p_phone VARCHAR2,
-    p_gender VARCHAR2,
+    p_blood_type    VARCHAR2,
+    p_phone         VARCHAR2,
+    p_email         VARCHAR2,
+    p_gender        VARCHAR2,
+    p_birthday      DATE,
     p_policy_number VARCHAR2,
-    p_birthday VARCHAR2
+    p_condition     VARCHAR2,
+    p_record_date   DATE,
+    p_contact_name  VARCHAR2,
+    p_contact_phone VARCHAR2,
+    p_contact_relation VARCHAR2,
+    p_provider      VARCHAR2,
+    p_insurance_plan VARCHAR2,
+    p_co_pay        NUMBER,
+    p_coverage      VARCHAR2,
+    p_maternity     CHAR,
+    p_dental        CHAR,
+    p_optical       CHAR
 ) IS
+    v_idpatient NUMBER;
 BEGIN
-    INSERT INTO HOSPITAL.PATIENT (
-        IDPATIENT, PATIENT_FNAME, PATIENT_LNAME, BLOOD_TYPE, EMAIL, PHONE, GENDER, POLICY_NUMBER, BIRTHDAY
+    -- Insert patient and get the new IDPATIENT
+    INSERT INTO Hospital.PATIENT (
+        IDPATIENT, PATIENT_FNAME, PATIENT_LNAME, BLOOD_TYPE, PHONE, EMAIL, GENDER, BIRTHDAY, POLICY_NUMBER
     )
     VALUES (
-        patient_seq_new.NEXTVAL, p_patient_fname, p_patient_lname, p_blood_type, p_email, p_phone, p_gender, p_policy_number, TO_DATE(p_birthday, 'YY.MM.DD')
-    );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL.PATIENT');
-EXCEPTION
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
-END;
+        patient_seq_new.NEXTVAL, p_patient_fname, p_patient_lname, p_blood_type, p_phone, p_email, p_gender, p_birthday, p_policy_number
+    )
+    RETURNING IDPATIENT INTO v_idpatient;
 
-BEGIN
-    insert_hospital_patient_new2(
-        'Francisco', 'Claudino', 'O+', 'claudino@gmail.com', '123-456-7892', 'Male', 'POL005', '85.07.15'
-    );
-END;
-
--- Insert Medical_History
-DECLARE
-    max_id NUMBER;
-BEGIN
-    -- Determine the current maximum RECORD_ID value
-    SELECT COALESCE(MAX(RECORD_ID), 0) INTO max_id FROM HOSPITAL.MEDICAL_HISTORY;
-
-    -- Create the sequence starting from the next value
-    EXECUTE IMMEDIATE 'CREATE SEQUENCE medical_history_seq START WITH ' || (max_id + 1) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
-END;
-
-CREATE OR REPLACE PROCEDURE insert_hospital_medical_history_new (
-    p_condition VARCHAR2,
-    p_record_date VARCHAR2,
-    p_idpatient NUMBER
-) IS
-BEGIN
-    INSERT INTO HOSPITAL.MEDICAL_HISTORY (
+    -- Insert into medical_history
+    INSERT INTO Hospital.MEDICAL_HISTORY (
         RECORD_ID, CONDITION, RECORD_DATE, IDPATIENT
     )
     VALUES (
-        medical_history_seq.NEXTVAL, p_condition, TO_DATE(p_record_date, 'YY.MM.DD'), p_idpatient
+        patient_seq_new.NEXTVAL, p_condition, p_record_date, v_idpatient
     );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL_MEDICAL_HISTORY');
-EXCEPTION
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
-END;
 
-BEGIN
-    insert_hospital_medical_history_new(
-        'Diabetes', '24.05.15', 91
-    );
-END;
-
--- Insert Insurance
-DECLARE
-    max_id NUMBER;
-BEGIN
-    -- Determine the current maximum numeric value for POLICY_NUMBER
-    SELECT COALESCE(MAX(TO_NUMBER(SUBSTR(POLICY_NUMBER, 4))), 0) INTO max_id FROM HOSPITAL.INSURANCE;
-
-    -- Create the sequence starting from the next value
-    EXECUTE IMMEDIATE 'CREATE SEQUENCE insurance_seq_new START WITH ' || (max_id + 2) || ' INCREMENT BY 1 NOCACHE NOCYCLE';
-END;
-
-CREATE OR REPLACE PROCEDURE insert_hospital_insurance_new (
-    p_provider VARCHAR2,
-    p_insurance_plan VARCHAR2,
-    p_co_pay NUMBER,
-    p_coverage VARCHAR2,
-    p_maternity CHAR,
-    p_dental CHAR,
-    p_optical CHAR
-) IS
-    v_policy_number VARCHAR2(10);
-BEGIN
-    -- Generate a new POLICY_NUMBER using the sequence
-    v_policy_number := 'POL' || TO_CHAR(insurance_seq_new.NEXTVAL, 'FM000');
-
-    INSERT INTO HOSPITAL.INSURANCE (
+    -- Insert into insurance
+    INSERT INTO Hospital.INSURANCE (
         POLICY_NUMBER, PROVIDER, INSURANCE_PLAN, CO_PAY, COVERAGE, MATERNITY, DENTAL, OPTICAL
     )
     VALUES (
-        v_policy_number, p_provider, p_insurance_plan, p_co_pay, p_coverage, p_maternity, p_dental, p_optical
+        p_policy_number, p_provider, p_insurance_plan, p_co_pay, p_coverage, p_maternity, p_dental, p_optical
     );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL_INSURANCE with POLICY_NUMBER ' || v_policy_number);
+
+    -- Insert into emergency_contact
+    INSERT INTO Hospital.EMERGENCY_CONTACT (
+        CONTACT_NAME, PHONE, RELATION, IDPATIENT
+    )
+    VALUES (
+        p_contact_name, p_contact_phone, p_contact_relation, v_idpatient
+    );
+
+    DBMS_OUTPUT.PUT_LINE('Patient and related records inserted successfully.');
 EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
 END;
 
+CREATE TABLE Hospital.New_Patient_Requests (
+    request_id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    patient_fname VARCHAR2(45),
+    patient_lname VARCHAR2(45),
+    blood_type    VARCHAR2(3),
+    phone         VARCHAR2(12),
+    email         VARCHAR2(50),
+    gender        VARCHAR2(10),
+    birthday      DATE,
+    policy_number VARCHAR2(45),
+    condition     VARCHAR2(45),
+    record_date   DATE,
+    contact_name  VARCHAR2(45),
+    contact_phone VARCHAR2(30),
+    contact_relation VARCHAR2(45),
+    provider      VARCHAR2(45),
+    insurance_plan VARCHAR2(45),
+    co_pay        NUMBER,
+    coverage      VARCHAR2(20),
+    maternity     CHAR(1),
+    dental        CHAR(1),
+    optical       CHAR(1)
+);
+
+-- Trigger to Insert a Patient
+CREATE OR REPLACE TRIGGER trg_insert_patient
+AFTER INSERT ON Hospital.New_Patient_Requests
+FOR EACH ROW
 BEGIN
-    insert_hospital_insurance_new(
-        'LLL Insurance', 'Premium Plan', 30, 'Partial Coverage', 'Y', 'Y', 'N'
+    insert_patient(
+        :NEW.patient_fname,
+        :NEW.patient_lname,
+        :NEW.blood_type,
+        :NEW.phone,
+        :NEW.email,
+        :NEW.gender,
+        :NEW.birthday,
+        :NEW.policy_number,
+        :NEW.condition,
+        :NEW.record_date,
+        :NEW.contact_name,
+        :NEW.contact_phone,
+        :NEW.contact_relation,
+        :NEW.provider,
+        :NEW.insurance_plan,
+        :NEW.co_pay,
+        :NEW.coverage,
+        :NEW.maternity,
+        :NEW.dental,
+        :NEW.optical
     );
 END;
 
--- Insert EmergencyContact
-CREATE OR REPLACE PROCEDURE insert_emergency_contact_new (
-    p_contact_name VARCHAR2,
-    p_phone VARCHAR2,
-    p_relation VARCHAR2,
-    p_idpatient NUMBER
-) IS
-BEGIN
-    INSERT INTO HOSPITAL.EMERGENCY_CONTACT (
-        CONTACT_NAME, PHONE, RELATION, IDPATIENT
-    )
-    VALUES (
-        p_contact_name, p_phone, p_relation, p_idpatient
-    );
-    DBMS_OUTPUT.PUT_LINE('Record inserted successfully into HOSPITAL.EMERGENCY_CONTACT');
-EXCEPTION
-    WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM || ' at ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
-END;
-
-BEGIN
-    insert_emergency_contact_new(
-        'Afonso Miguel', '444-555-7777', 'Brother', 91
-    );
-END;
+INSERT INTO Hospital.New_Patient_Requests (
+    patient_fname, patient_lname, blood_type, phone, email, gender, birthday, policy_number,
+    condition, record_date, contact_name, contact_phone, contact_relation,
+    provider, insurance_plan, co_pay, coverage, maternity, dental, optical
+) VALUES (
+    'Francisco', 'Claudino', 'O+', '123.456.7890', 'claudino@example.com', 'Male', TO_DATE('1980-01-01', 'YYYY-MM-DD'), 'POL123456',
+    'Hypertension', TO_DATE('2023-06-01', 'YYYY-MM-DD'), 'Jane Doe', '123.456.7890', 'Spouse',
+    'InsuranceCo', 'PlanA', 100, 'Full', 'Y', 'N', 'Y'
+);
 
 ---------------------------------------------------------------------------------------------------------------
 
 -- UPDATES
 
 
+-- 1)
+-- Update a Patient
+CREATE OR REPLACE PROCEDURE update_patient (
+    p_idpatient     IN NUMBER,
+    p_patient_fname IN VARCHAR2,
+    p_patient_lname IN VARCHAR2,
+    p_blood_type    IN VARCHAR2,
+    p_phone         IN VARCHAR2,
+    p_email         IN VARCHAR2,
+    p_gender        IN VARCHAR2,
+    p_birthday      IN DATE,
+    p_policy_number IN VARCHAR2
+) IS
+BEGIN
+    UPDATE Hospital.PATIENT
+    SET patient_fname = p_patient_fname,
+        patient_lname = p_patient_lname,
+        blood_type    = p_blood_type,
+        phone         = p_phone,
+        email         = p_email,
+        gender        = p_gender,
+        birthday      = p_birthday,
+        policy_number = p_policy_number
+    WHERE idpatient = p_idpatient;
+
+    DBMS_OUTPUT.PUT_LINE('Patient record updated successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+-- Triger for Update Patient
+CREATE OR REPLACE TRIGGER trg_update_patient
+BEFORE UPDATE ON Hospital.PATIENT
+FOR EACH ROW
+BEGIN
+    update_patient(
+        p_idpatient     => :OLD.idpatient,
+        p_patient_fname => :NEW.patient_fname,
+        p_patient_lname => :NEW.patient_lname,
+        p_blood_type    => :NEW.blood_type,
+        p_phone         => :NEW.phone,
+        p_email         => :NEW.email,
+        p_gender        => :NEW.gender,
+        p_birthday      => :NEW.birthday,
+        p_policy_number => :NEW.policy_number
+    );
+END;
+
+-- Update the patient information
+BEGIN
+    UPDATE Hospital.PATIENT
+    SET patient_fname = 'Francisco Updated',
+        patient_lname = 'Claudino Updated',
+        blood_type = 'A+',
+        phone = '987.654.3210',
+        email = 'updated_claudino@example.com',
+        gender = 'Male',
+        birthday = TO_DATE('1981-01-01', 'YYYY-MM-DD'),
+        policy_number = 'POL010'
+    WHERE idpatient = 543;
+END;
+
+-- 2)
+-- Update the Medical History
+CREATE OR REPLACE PROCEDURE update_medical_history (
+    p_record_id   IN NUMBER,
+    p_condition   IN VARCHAR2,
+    p_record_date IN DATE,
+    p_idpatient   IN NUMBER
+) IS
+BEGIN
+    UPDATE Hospital.MEDICAL_HISTORY
+    SET condition = p_condition,
+        record_date = p_record_date,
+        idpatient = p_idpatient
+    WHERE record_id = p_record_id;
+
+    DBMS_OUTPUT.PUT_LINE('Medical history record updated successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+-- Triger for Update Medical History
+CREATE OR REPLACE TRIGGER trg_update_medical_history
+BEFORE UPDATE ON Hospital.MEDICAL_HISTORY
+FOR EACH ROW
+BEGIN
+    update_medical_history(
+        p_record_id   => :OLD.record_id,
+        p_condition   => :NEW.condition,
+        p_record_date => :NEW.record_date,
+        p_idpatient   => :NEW.idpatient
+    );
+END;
+
+-- Update the medical history record
+BEGIN
+    UPDATE Hospital.MEDICAL_HISTORY
+    SET condition = 'Updated Condition',
+        record_date = TO_DATE('2023-07-01', 'YYYY-MM-DD'),
+        idpatient = 543
+    WHERE record_id = 1001;
+END;
+
+-- 3)
+-- Update the Insurance
+CREATE OR REPLACE PROCEDURE update_insurance (
+    p_policy_number  IN VARCHAR2,
+    p_provider       IN VARCHAR2,
+    p_insurance_plan IN VARCHAR2,
+    p_co_pay         IN NUMBER,
+    p_coverage       IN VARCHAR2,
+    p_maternity      IN CHAR,
+    p_dental         IN CHAR,
+    p_optical        IN CHAR
+) IS
+BEGIN
+    UPDATE Hospital.INSURANCE
+    SET provider = p_provider,
+        insurance_plan = p_insurance_plan,
+        co_pay = p_co_pay,
+        coverage = p_coverage,
+        maternity = p_maternity,
+        dental = p_dental,
+        optical = p_optical
+    WHERE policy_number = p_policy_number;
+
+    DBMS_OUTPUT.PUT_LINE('Insurance record updated successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+CREATE OR REPLACE TRIGGER trg_update_insurance
+BEFORE UPDATE ON Hospital.INSURANCE
+FOR EACH ROW
+BEGIN
+    update_insurance(
+        p_policy_number  => :OLD.policy_number,
+        p_provider       => :NEW.provider,
+        p_insurance_plan => :NEW.insurance_plan,
+        p_co_pay         => :NEW.co_pay,
+        p_coverage       => :NEW.coverage,
+        p_maternity      => :NEW.maternity,
+        p_dental         => :NEW.dental,
+        p_optical        => :NEW.optical
+    );
+END;
+
+-- Update the insurance information
+BEGIN
+    UPDATE Hospital.INSURANCE
+    SET provider = 'Updated InsuranceCo',
+        insurance_plan = 'Updated Plan',
+        co_pay = 200,
+        coverage = 'Partial',
+        maternity = 'N',
+        dental = 'Y',
+        optical = 'N'
+    WHERE policy_number = 'POL123456';
+END;
+
+-- 4)
+-- Update the Emergency Contact
+CREATE OR REPLACE PROCEDURE update_emergency_contact (
+    p_contact_name  IN VARCHAR2,
+    p_phone         IN VARCHAR2,
+    p_relation      IN VARCHAR2,
+    p_idpatient     IN NUMBER,
+    p_old_phone     IN VARCHAR2 -- To identify the old record for update
+) IS
+BEGIN
+    UPDATE Hospital.EMERGENCY_CONTACT
+    SET contact_name = p_contact_name,
+        phone = p_phone,
+        relation = p_relation,
+        idpatient = p_idpatient
+    WHERE idpatient = p_idpatient AND phone = p_old_phone;
+
+    DBMS_OUTPUT.PUT_LINE('Emergency contact record updated successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+-- Trigger to Update Emergency Contact
+CREATE OR REPLACE TRIGGER trg_update_emergency_contact
+BEFORE UPDATE ON Hospital.EMERGENCY_CONTACT
+FOR EACH ROW
+BEGIN
+    update_emergency_contact(
+        p_contact_name => :NEW.contact_name,
+        p_phone        => :NEW.phone,
+        p_relation     => :NEW.relation,
+        p_idpatient    => :NEW.idpatient,
+        p_old_phone    => :OLD.phone
+    );
+END;
+
+-- Update the emergency contact information
+BEGIN
+    UPDATE Hospital.EMERGENCY_CONTACT
+    SET contact_name = 'Jane Doe Updated',
+        phone = '987.654.3210',
+        relation = 'Updated Spouse',
+        idpatient = 543
+    WHERE idpatient = 543 AND phone = '123.456.7890';
+END;
+
 ---------------------------------------------------------------------------------------------------------------
 
 -- DELETES
 
+-- 1)
+-- Delete Pacient, Insursance, Emergency Contact and Medical History
+CREATE OR REPLACE PROCEDURE delete_patient_and_related (
+    p_idpatient IN NUMBER
+) IS
+BEGIN
+    -- Delete from the Medical History table
+    DELETE FROM Hospital.MEDICAL_HISTORY
+    WHERE idpatient = p_idpatient;
+
+    -- Delete from the Emergency Contact table
+    DELETE FROM Hospital.EMERGENCY_CONTACT
+    WHERE idpatient = p_idpatient;
+
+    -- Delete from the Insurance table
+    DELETE FROM Hospital.INSURANCE
+    WHERE policy_number = (SELECT policy_number FROM Hospital.PATIENT WHERE idpatient = p_idpatient);
+
+    -- Set patient_idpatient in the Episode table to 0
+    UPDATE Hospital.EPISODE
+    SET patient_idpatient = 0
+    WHERE patient_idpatient = p_idpatient;
+
+    -- Delete from the Patient table
+    DELETE FROM Hospital.PATIENT
+    WHERE idpatient = p_idpatient;
+
+    DBMS_OUTPUT.PUT_LINE('Patient and related records deleted successfully, patient_id set to 0 in episode.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+
+-- Trigger to Delete a Patient
+CREATE OR REPLACE TRIGGER trg_delete_patient_and_related
+BEFORE DELETE ON Hospital.PATIENT
+FOR EACH ROW
+BEGIN
+    delete_patient_and_related(:OLD.idpatient);
+END;
+
+DELETE FROM Hospital.PATIENT WHERE idpatient = 543;
