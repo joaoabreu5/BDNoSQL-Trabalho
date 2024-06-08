@@ -279,14 +279,23 @@ function listPatientsWithOpticalyCoverage(optical) {
 
 listPatientsWithOpticalyCoverage(false);
 
-// ------------------------------------------------------------------------------------------------------------
+// 27) Buscar Patients pela Relação
+function findPatientsByEmergencyContactRelation(relation) {
+  return db.patients.find(
+    {
+      emergency_contact: {
+        $elemMatch: { relation: relation }
+      }
+    },
+    {
+      _id: 0,
+      id_patient: 1,
+      patient_fname: 1,
+      patient_lname: 1,
+      emergency_contact: 1
+    }
+  ).toArray();
+}
 
-// INSERTS
-
-// ---------------------------------------------------------------------------------------------------------------
-
-// DELETES
-
-// ---------------------------------------------------------------------------------------------------------------
-
-//  UPDATES
+// Uso:
+findPatientsByEmergencyContactRelation('Sibling');
