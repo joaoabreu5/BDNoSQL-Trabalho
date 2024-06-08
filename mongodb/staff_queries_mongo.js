@@ -1,7 +1,5 @@
 // STAFF VISION
 
-// SELECTS
-
 // 1) Buscar toda a Informação de um Staff
 function getStaffInfo(emp_id) {
     return db.staff.findOne({
@@ -17,30 +15,20 @@ function getDepartmentInfo(emp_id) {
     if (employee && employee.department) {
       return employee.department;
     } else {
-      return null; // Or handle the case when the employee or department is not found
+      return null; 
     }
   }
 
 getDepartmentInfo(19);
 
 // 3) Buscar toda a informação das Enfermeiras
-function getAllNurses() {
-    return db.staff.find({ role: "NURSE" }).toArray();
-  }
-  
-getAllNurses();
+db.staff.find({ role: "NURSE" }).toArray();
 
 // 4) Buscar toda a informação dos Médicos
-function getAllDoctors() {
-    return db.staff.find({ role: "DOCTOR" }).toArray();
-  }
+db.staff.find({ role: "DOCTOR" }).toArray();
 
 // 5) Buscar toda a informação dos Técnicos
-function getAllTechnicians() {
-    return db.staff.find({ role: "TECHNICIAN" }).toArray();
-  }
-  
-getAllTechnicians();
+db.staff.find({ role: "TECHNICIAN" }).toArray();
 
 // 6) Buscar quantos Enfermeiros existem
 db.staff.countDocuments({ role: "NURSE" });
@@ -65,8 +53,7 @@ function countStaffByRole() {
   }
 
 // 10) Buscar quantos Departments existem
-function countDepartments() {
-    return db.staff.aggregate([
+db.staff.aggregate([
       {
         $group: {
           _id: "$department.id_department"
@@ -75,10 +62,7 @@ function countDepartments() {
       {
         $count: "numberOfDepartments"
       }
-    ]).toArray();
-  }
-  
-countDepartments();
+    ])
   
 // 11) Buscar Staff por Date_Joining
 function AllInfoStaffByDateJoining(date_joining) {
@@ -214,3 +198,45 @@ db.staff.aggregate([
       }
     }
   ])
+
+// 20) Buscar Todos os Staff que Estão Ativos
+db.staff.find({ is_active_status: true }).toArray();
+
+// 21) Buscar Todos os Staff que não estão Ativos
+db.staff.find({ is_active_status: false }).toArray();
+
+// 22) Contar Quantos Staff Estão Ativos
+db.staff.countDocuments({ is_active_status: true });
+
+// 23) Contar Quantos Staff não estão Ativos
+db.staff.countDocuments({ is_active_status: false });
+
+// 24) Buscar Staff pelo Primeiro Nome (emp_fname) e Sobrenome (emp_lname)
+function getStaffByName(firstName, lastName) {
+  return db.staff.findOne({ emp_fname: firstName, emp_lname: lastName });
+}
+
+var firstName = "Lisa";
+var lastName = "Hayes";
+
+getStaffByName(firstName, lastName);
+
+// 25) Buscar Staff pelo Email
+function getStaffByEmail(email) {
+  return db.staff.findOne({ email: email });
+}
+
+var email = "mprice@example.com";
+
+getStaffByEmail(email);
+
+// 26) Contar o Número Total de Staff
+db.staff.countDocuments();
+
+// 27) Buscar Staff pelo SSN
+function getStaffBySSN(ssn_new) {
+  return db.staff.findOne({ ssn: ssn_new });
+}
+
+var ssn_new2 = 105899430;  
+getStaffBySSN(ssn_new2);

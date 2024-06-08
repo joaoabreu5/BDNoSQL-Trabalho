@@ -1,8 +1,6 @@
 // PACIENT VISION
 
-// SELECTS
-
-// Buscar o Pacient para um dado ID
+// 1) Buscar o Pacient para um dado ID
 function getPatientById(id) {
   return db.patients.findOne({ id_patient: id });
 }
@@ -297,5 +295,82 @@ function findPatientsByEmergencyContactRelation(relation) {
   ).toArray();
 }
 
-// Uso:
 findPatientsByEmergencyContactRelation('Sibling');
+
+// 28) Buscar um Paciente pelo Primeiro Nome e Sobrenome
+function getPatientByName(firstName, lastName) {
+  return db.patients.findOne({
+      patient_fname: firstName,
+      patient_lname: lastName
+  });
+}
+
+var firstName = "John";
+var lastName = "Doe";
+
+getPatientByName(firstName, lastName);
+
+// 29) Buscar um Paciente pelo Número de Telefone
+function getPatientByPhone(phone) {
+  return db.patients.findOne({ phone: phone });
+}
+
+var phone = "123-456-7892";
+
+getPatientByPhone(phone);
+
+// 30) Contar o Número de Pacientes
+db.patients.countDocuments();
+
+// 31) Buscar Pacientes com um Contato de Emergência Específico
+function getPatientsByEmergencyContact(firstName, lastName) {
+  const contactName = `${firstName} ${lastName}`;
+  return db.patients.aggregate([
+      { $unwind: "$emergency_contact" },
+      { $match: { "emergency_contact.contact_name": contactName } },
+      { $group: {
+          _id: "$_id",
+          patient_info: { $first: "$$ROOT" }
+      }},
+      { $project: {
+          _id: 0,
+          id_patient: "$patient_info.id_patient",
+          patient_fname: "$patient_info.patient_fname",
+          patient_lname: "$patient_info.patient_lname",
+          phone: "$patient_info.phone",
+          email: "$patient_info.email",
+          gender: "$patient_info.gender",
+          emergency_contact: "$patient_info.emergency_contact"
+      }}
+  ]).toArray();
+}
+
+var firstName = "Emma";
+var lastName = "Thompson";
+
+getPatientsByEmergencyContact(firstName, lastName);
+
+// 32) Buscar Pacientes pelo record_id
+function getPatientsByRecordId(recordId) {
+  return db.patients.aggregate([
+      { $unwind: "$medical_history" },
+      { $match: { "medical_history.record_id": recordId } },
+      { $group: {
+          _id: "$_id",
+          patient_info: { $first: "$$ROOT" }
+      }},
+      { $project: {
+          _id: 0,
+          id_patient: "$patient_info.id_patient",
+          patient_fname: "$patient_info.patient_fname",
+          patient_lname: "$patient_info.patient_lname",
+          phone: "$patient_info.phone",
+          email: "$patient_info.email",
+          gender: "$patient_info.gender",
+          medical_history: "$patient_info.medical_history"
+      }}
+  ]).toArray();
+}
+
+var recordId = 21; 
+getPatientsByRecordId(recordId);
