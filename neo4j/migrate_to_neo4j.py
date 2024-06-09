@@ -84,8 +84,8 @@ def add_constraints(neo4j_conn : Neo4jConnection):
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (i:Insurance) REQUIRE i.policy_number IS UNIQUE")
     # Ensure uniqueness constraint on emergency contacts
     neo4j_conn.executeQuery("CREATE CONSTRAINT unique_contact FOR (c:EmergencyContact) REQUIRE (c.contact_name, c.phone, c.relation) IS UNIQUE;")
-    # Ensure uniqueness constraint on record_id
-    neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (m:MedicalHistory) REQUIRE m.record_id IS UNIQUE")
+    # Ensure uniqueness constraint on id_record
+    neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (m:MedicalHistory) REQUIRE m.id_record IS UNIQUE")
     # Ensure uniqueness constraint on id_department
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (dep:Department) REQUIRE dep.id_department IS UNIQUE")
     # Ensure uniqueness constraint on id_emp
@@ -104,7 +104,8 @@ def add_constraints(neo4j_conn : Neo4jConnection):
     neo4j_conn.executeQuery("CREATE CONSTRAINT unique_appointment FOR (a:Appointment) REQUIRE (a.appointment_date, a.appointment_time,a.id_doctor) IS UNIQUE;")
     # Ensure uniqueness constraint on hospitalization
     neo4j_conn.executeQuery("CREATE CONSTRAINT unique_hospitalization FOR (h:Hospitalization) REQUIRE (h.admission_date, h.discharge_date, h.id_episode) IS UNIQUE;")
-
+    # Ensure uniqueness constraint on episode
+    neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (e:Episode) REQUIRE e.id_episode IS UNIQUE")
 
 
 def migrate_insurance(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
@@ -221,14 +222,14 @@ def migrate_medical_history(oracle_conn : OracleConnection, neo4j_conn : Neo4jCo
     
     for history in medical_histories:
         node_history = {
-            'record_id': int(history[0]),
+            'id_record': int(history[0]),
             'condition': history[1],
             'record_date': history[2],
         }
         # Neo4j query to create the medical history node and relationship with patient
         medical_history_query = f"""
             MATCH (p:Patient {{id_patient: {patient_id}}})
-            MERGE (m:MedicalHistory {{record_id: {node_history['record_id']}}})
+            MERGE (m:MedicalHistory {{id_record: {node_history['id_record']}}})
             ON CREATE SET m.condition = '{node_history['condition']}',
                           m.record_date = '{node_history['record_date']}'
             MERGE (p)-[:HAS_MEDICAL_HISTORY]->(m)
@@ -406,7 +407,7 @@ def migrate_lab_screenings(neo4j_conn: Neo4jConnection, oracle_conn: OracleConne
     """)
     for lab_screening in lab_screenings:
         node_lab_screening = {
-            'lab_id': int(lab_screening[0]),
+            'id_lab': int(lab_screening[0]),
             'test_cost': float(lab_screening[1]),
             'test_date': lab_screening[2],
             'id_technician': int(lab_screening[3]),
@@ -415,7 +416,7 @@ def migrate_lab_screenings(neo4j_conn: Neo4jConnection, oracle_conn: OracleConne
 
         # Neo4j query to create or merge the lab screening node and relationship with episode and technician
         lab_screening_query = f"""
-            MERGE (l:LabScreening {{id_lab: {node_lab_screening['lab_id']}}})
+            MERGE (l:LabScreening {{id_lab: {node_lab_screening['id_lab']}}})
             ON CREATE SET l.test_cost = {node_lab_screening['test_cost']},
                             l.test_date = '{node_lab_screening['test_date']}'
             ON MATCH SET l.test_cost = {node_lab_screening['test_cost']},
@@ -634,8 +635,6 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
                 # Migrate episode hospitalization
                 migrate_hospitalization(neo4j_conn, episode)
 
-    # Ensure uniqueness constraint on id_episode
-    neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (e:Episode) REQUIRE e.id_episode IS UNIQUE")
 
 def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Add constraints
