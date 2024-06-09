@@ -3,10 +3,27 @@ import argparse
 import logging
 import inspect
 import json
+import os
 
 # Documentation
 # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2
+
+SCRIPT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+
+def read_trigger_names(file_path : str):
+    path = os.path.join(SCRIPT_DIR_PATH, file_path)
+    
+    with open(path, 'r') as json_file:
+        triggers_config = json.load(json_file)
+        
+    trigger_names = []
+    
+    for config in triggers_config:
+        trigger_names.append(config['name'])
+    
+    return trigger_names
+
 
 def check_response_status(response: requests.Response, success_code : int):
     status_code = response.status_code
@@ -159,26 +176,18 @@ def main():
     parser.add_argument('-pubk', '--public-key', help='MongoDB Atlas public key', type=str)
     parser.add_argument('-privk', '--private-key', help='MongoDB Atlas private key', type=str)
     parser.add_argument('-pn', '--project-name', help='MongoDB Atlas project name', default='BDNoSQL-TP', type=str)
-    
+    parser.add_argument('-f', '--file', help='MongoDB Atlas triggers\' configuration (JSON) file', default='triggers/triggers_config.json', type=str)
+        
     args = parser.parse_args()      # Para obter um dicionário: args = vars(parser.parse_args())
     
     logging.basicConfig(format="[%(asctime)s] - %(levelname)s - line %(lineno)d, in '%(funcName)s' - %(message)s\n")
+    
+    trigger_names = read_trigger_names(args.file)
     
     access_token = get_access_token(args.public_key, args.private_key)
     
     groupId = get_groupId(args.public_key, args.private_key, args.project_name)
     appId = get_appId(access_token, groupId)
-    
-    trigger_names = [
-        'id_patient_trigger',
-        'id_episode_trigger',
-        'emp_id_trigger',
-        'medical_history_record_id_trigger',
-        'bills_id_bill_trigger',
-        'prescriptions_id_prescription_trigger',
-        'lab_screenings_lab_id_trigger',
-        'trg_generate_bill'
-    ]
     
     resume_triggers(access_token, groupId, appId, trigger_names)
     

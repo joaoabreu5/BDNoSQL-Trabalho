@@ -11,26 +11,26 @@ import os
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2
 
 SCRIPT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-TRIGGERS_DIR_PATH = os.path.join(SCRIPT_DIR_PATH, 'triggers')
-
-def read_trigger_JS_file(filename : str):
-    if not filename.endswith('.js'):
-        filename += '.js'
     
-    path = os.path.join(TRIGGERS_DIR_PATH, filename)
+def read_config_file(file_path : str):
+    path = os.path.join(SCRIPT_DIR_PATH, file_path)
+    
+    with open(path, 'r') as json_file:
+        triggers_config = json.load(json_file)
+        
+    config_dict = {}
+    
+    for config in triggers_config:
+        config_dict[config['name']] = config
+    
+    return config_dict
+
+
+def read_trigger_file(config_dir : str, file_name : str):
+    path = os.path.join(config_dir, file_name)
     
     with open(path, 'r') as js_file:
         return js_file.read()
-    
-    
-def read_trigger_JSON_file(filename : str):
-    if not filename.endswith('.json'):
-        filename += '.json'
-    
-    path = os.path.join(TRIGGERS_DIR_PATH, filename)
-    
-    with open(path, 'r') as json_file:
-        return json.load(json_file)
 
 
 def check_response_status(response: requests.Response, success_code : int):
@@ -265,121 +265,86 @@ def create_trigger(access_token: str, groupId : str, appId : str, function_data 
             response_POST_trigger = requests.post(url, headers=headers, data=json.dumps(trigger_data))
             
             check_response_status(response_POST_trigger, 201)
-
-
-def create_seq_id_trigger(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, 
-                          database_name: str, collection_name : str, field_name : str | tuple, 
-                          trigger_template : jinja2.Template, match_exp_template : jinja2.Template):
     
-    if len(field_name) == 1:
-        field_name = field_name[0]
     
-    if isinstance(field_name, str):
-        trigger_name = f'{field_name}_trigger'
-        trigger_code = trigger_template.render(service_name=service_name, field_name=field_name)
-        trigger_match_exp = json.loads(match_exp_template.render(field_name=field_name))
-        full_document_before_change = True
+def create_triggers(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, triggers_config : dict, config_dir : str):
+    j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=config_dir))
+    
+    for trigger_name in triggers_config:
+        trigger_data = triggers_config[trigger_name]
         
-    elif len(field_name) == 2:
-        list_name, list_obj_field_name = field_name
+        if 'function' in trigger_data:
+            function_data = trigger_data.pop('function')
+            
+            if 'source_file' in function_data and 'source' not in function_data:
+                source_file = function_data['source_file']
+                
+                code = None
+                
+                if 'path' in source_file:
+                    path = source_file['path']
+                
+                    if 'template' in source_file and source_file['template'] is True:
+                        if 'args' in source_file:
+                            args = source_file['args']
+                        else:
+                            args = {}
+                        
+                        args['service_name'] = service_name
+                        
+                        try:
+                            template = j2_env.get_template(path)
+                            code = template.render(args)
+                        except Exception as e:
+                            logging.error(f'Exceção na leitura do template \'{path}\' -> "{e}".')
+                    
+                    else:
+                        try:
+                            code = read_trigger_file(config_dir, path)
+                        except Exception as e:
+                            logging.error(f'Exceção na leitura do ficheiro \'{path}\' -> "{e}".')
+                
+                function_data['source'] = code
+                del function_data['source_file']
         
-        trigger_name = f'{list_name}_{list_obj_field_name}_trigger'
-        trigger_code = trigger_template.render(service_name=service_name, 
-                                               list_name=list_name, obj_field_name=list_obj_field_name)
-        trigger_match_exp = json.loads(match_exp_template.render(list_name=list_name, obj_field_name=list_obj_field_name))
-        full_document_before_change = False
-    
-    else:
-        return
-    
-    
-    function_data = {
-        'name': f'{trigger_name}_function',
-        'private': True,
-        'source': trigger_code
-    }
-    
-    trigger_data = {
-        'name': f'{trigger_name}',
-        'type': 'DATABASE',
-        'config': {
-            'service_id': service_id,
-            'database': database_name,
-            'collection': collection_name,
-            'operation_types': ['INSERT', 'UPDATE', 'REPLACE'],
-            'match': trigger_match_exp,
-            'full_document_before_change': full_document_before_change,
-            'tolerate_resume_errors': True
-        }
-    }
-    
-    create_trigger(access_token, groupId, appId, function_data, trigger_data)
-
-
-def create_trg_generate_bill(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, 
-                             database_name: str, collection_name : str, j2_env: jinja2.Environment):
-    
-    trigger_name = 'trg_generate_bill'
-    
-    trigger_template = j2_env.get_template(f'{trigger_name}.js.j2') 
-       
-    trigger_code = trigger_template.render(service_name=service_name)
-    
-    function_data = {
-        'name': f'{trigger_name}_function',
-        'private': True,
-        'source': trigger_code
-    }
-    
-    trigger_data = {
-        'name': f'{trigger_name}',
-        'type': 'DATABASE',
-        'config': {
-            'service_id': service_id,
-            'database': database_name,
-            'collection': collection_name,
-            'operation_types': ['UPDATE', 'REPLACE'],
-            'match': read_trigger_JSON_file(f'{trigger_name}_match_exp'),
-            'full_document': True,
-            'full_document_before_change': True,
-            'tolerate_resume_errors': True
-        }
-    }
-    
-    create_trigger(access_token, groupId, appId, function_data, trigger_data)
-    
-    
-def create_triggers(access_token: str, groupId : str, appId : str, service_id : str, service_name : str):
-    database_name = 'hospital'
-    episodes_coll_name = 'episodes'
-    patients_coll_name = 'patients'
-    staff_coll_name = 'staff'
-    
-    j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=TRIGGERS_DIR_PATH))
-    
-    seq_id_trigger_template = j2_env.get_template('seq_id_trigger.js.j2')
-    seq_id_trigger_match_exp_template = j2_env.get_template('seq_id_trigger_match_exp.json.j2')
-    
-    seq_id_list_trigger_template = j2_env.get_template('seq_id_list_trigger.js.j2')
-    seq_id_list_trigger_match_exp_template = j2_env.get_template('seq_id_list_trigger_match_exp.json.j2')
-    
-    seq_id_triggers_coll_field = (
-        (patients_coll_name, 'id_patient', seq_id_trigger_template, seq_id_trigger_match_exp_template),
-        (episodes_coll_name, 'id_episode', seq_id_trigger_template, seq_id_trigger_match_exp_template),
-        (staff_coll_name, 'emp_id', seq_id_trigger_template, seq_id_trigger_match_exp_template),
-        (patients_coll_name, ('medical_history', 'record_id'), seq_id_list_trigger_template, seq_id_list_trigger_match_exp_template),
-        (episodes_coll_name, ('bills', 'id_bill'), seq_id_list_trigger_template, seq_id_list_trigger_match_exp_template),
-        (episodes_coll_name, ('prescriptions', 'id_prescription'), seq_id_list_trigger_template, seq_id_list_trigger_match_exp_template),
-        (episodes_coll_name, ('lab_screenings', 'lab_id'), seq_id_list_trigger_template, seq_id_list_trigger_match_exp_template)
-    )
-    
-    for coll_name, field_name, trigger_template, match_exp_template in seq_id_triggers_coll_field:
-        create_seq_id_trigger(access_token, groupId, appId, service_id, service_name, 
-                              database_name, coll_name, field_name, trigger_template, match_exp_template)
-    
-    create_trg_generate_bill(access_token, groupId, appId, service_id, service_name, database_name, coll_name, j2_env)
-    
-    
+        
+        if 'config' in trigger_data:
+            trigger_config = trigger_data['config']
+            trigger_data['config']['service_id'] = service_id
+            
+            if 'match_file' in trigger_config and 'match' not in trigger_config:
+                match_file = trigger_config['match_file']
+                
+                match = None
+                
+                if 'path' in match_file:
+                    path = match_file['path']
+                    
+                    if 'template' in match_file and match_file['template'] is True:
+                        if 'args' in match_file:
+                            args = match_file['args']
+                        else:
+                            args = {}
+                        
+                        try:
+                            template = j2_env.get_template(path)
+                            match = json.loads(template.render(args))
+                        except Exception as e:
+                            logging.error(f'Exceção na leitura ou deserialização do template JSON \'{path}\' -> "{e}".')
+                    
+                    else:
+                        try:
+                            match = json.loads(read_trigger_file(config_dir, path))
+                        except Exception as e:
+                            logging.error(f'Exceção na leitura ou deserialização do ficheiro JSON \'{path}\' -> "{e}".')
+                  
+                trigger_data['config']['match'] = match
+                del trigger_data['config']['match_file']
+        
+        
+        create_trigger(access_token, groupId, appId, function_data, trigger_data)
+        
+        
 def main():
     parser = argparse.ArgumentParser()
     
@@ -387,10 +352,14 @@ def main():
     parser.add_argument('-privk', '--private-key', help='MongoDB Atlas private key', type=str)
     parser.add_argument('-pn', '--project-name', help='MongoDB Atlas project name', default='BDNoSQL-TP', type=str)
     parser.add_argument('-cn', '--cluster-name', help='MongoDB Atlas cluster name', default='Cluster0', type=str)
+    parser.add_argument('-f', '--file', help='MongoDB Atlas triggers\' configuration file (JSON) path', default='triggers/triggers_config.json', type=str)
     
     args = parser.parse_args()      # Para obter um dicionário: args = vars(parser.parse_args())
     
     logging.basicConfig(format="[%(asctime)s] - %(levelname)s - line %(lineno)d, in '%(funcName)s' - %(message)s\n")
+    
+    triggers_config = read_config_file(args.file)
+    config_dir = os.path.join(SCRIPT_DIR_PATH, os.path.dirname(args.file))
     
     access_token = get_access_token(args.public_key, args.private_key)
     
@@ -399,7 +368,7 @@ def main():
     
     service_id, service_name = get_service_id_and_name(access_token, groupId, appId, args.cluster_name)
     
-    create_triggers(access_token, groupId, appId, service_id, service_name)
+    create_triggers(access_token, groupId, appId, service_id, service_name, triggers_config, config_dir)
     
 
 if __name__ == '__main__':

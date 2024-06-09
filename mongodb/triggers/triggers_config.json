@@ -1,0 +1,240 @@
+[
+    {
+        "name": "id_patient_trigger",
+        "type": "DATABASE",
+        "function": {
+            "name": "id_patient_trigger_function",
+            "private": true,
+            "source_file": {
+                "path": "seq_id_trigger.js.j2",
+                "template": true,
+                "args": {
+                    "field_name": "id_patient"
+                }
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "patients",
+            "operation_types": ["INSERT", "UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "seq_id_trigger_match_exp.json.j2",
+                "template": true,
+                "args": {
+                    "field_name": "id_patient"
+                }
+
+            },
+            "full_document_before_change": true,
+            "tolerate_resume_errors": true
+        }
+    },
+    {
+        "name": "id_episode_trigger",
+        "type": "DATABASE",
+        "function": {
+            "name": "id_episode_trigger_function",
+            "private": true,
+            "source_file": {
+                "path": "seq_id_trigger.js.j2",
+                "template": true,
+                "args": {
+                    "field_name": "id_episode"
+                }
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "episodes",
+            "operation_types": ["INSERT", "UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "seq_id_trigger_match_exp.json.j2",
+                "template": true,
+                "args": {
+                    "field_name": "id_episode"
+                }
+
+            },
+            "full_document_before_change": true,
+            "tolerate_resume_errors": true
+        }
+    },
+    {
+        "name": "emp_id_trigger",
+        "type": "DATABASE",
+        "function": {
+            "name": "emp_id_trigger_function",
+            "private": true,
+            "source_file": {
+                "path": "seq_id_trigger.js.j2",
+                "template": true,
+                "args": {
+                    "field_name": "emp_id"
+                }
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "staff",
+            "operation_types": ["INSERT", "UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "seq_id_trigger_match_exp.json.j2",
+                "template": true,
+                "args": {
+                    "field_name": "emp_id"
+                }
+
+            },
+            "full_document_before_change": true,
+            "tolerate_resume_errors": true
+        }
+    },
+    {
+        "name": "medical_history_record_id_trigger",
+        "type": "DATABASE",
+        "function": {
+            "name": "medical_history_record_id_trigger_function",
+            "private": true,
+            "source_file": {
+                "path": "seq_id_list_trigger.js.j2",
+                "template": true,
+                "args": {
+                    "list_name": "medical_history",
+                    "ob_field_name": "record_id"
+                }
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "patients",
+            "operation_types": ["INSERT", "UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "template": true,
+                "args": {
+                    "list_name": "medical_history",
+                    "obj_field_name": "record_id"
+                }
+
+            },
+            "tolerate_resume_errors": true
+        }
+    },
+    {
+        "name": "bills_id_bill_trigger",
+        "type": "DATABASE",
+        "function": {
+            "name": "bills_id_bill_trigger_function",
+            "private": true,
+            "source_file": {
+                "path": "seq_id_list_trigger.js.j2",
+                "template": true,
+                "args": {
+                    "list_name": "bills",
+                    "ob_field_name": "id_bill"
+                }
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "episodes",
+            "operation_types": ["INSERT", "UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "template": true,
+                "args": {
+                    "list_name": "bills",
+                    "obj_field_name": "id_bill"
+                }
+
+            },
+            "tolerate_resume_errors": true
+        }
+    },
+    {
+        "name": "prescriptions_id_prescription_trigger",
+        "type": "DATABASE",
+        "function": {
+            "name": "prescriptions_id_prescription_trigger_function",
+            "private": true,
+            "source_file": {
+                "path": "seq_id_list_trigger.js.j2",
+                "template": true,
+                "args": {
+                    "list_name": "prescriptions",
+                    "ob_field_name": "id_prescription"
+                }
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "episodes",
+            "operation_types": ["INSERT", "UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "template": true,
+                "args": {
+                    "list_name": "prescriptions",
+                    "obj_field_name": "id_prescription"
+                }
+
+            },
+            "tolerate_resume_errors": true
+        }
+    },
+    {
+        "name": "lab_screenings_lab_id_trigger",
+        "type": "DATABASE",
+        "function": {
+            "name": "lab_screenings_lab_id_trigger_function",
+            "private": true,
+            "source_file": {
+                "path": "seq_id_list_trigger.js.j2",
+                "template": true,
+                "args": {
+                    "list_name": "lab_screenings",
+                    "ob_field_name": "lab_id"
+                }
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "episodes",
+            "operation_types": ["INSERT", "UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "template": true,
+                "args": {
+                    "list_name": "lab_screenings",
+                    "obj_field_name": "lab_id"
+                }
+
+            },
+            "tolerate_resume_errors": true
+        }
+    },
+    {
+        "name": "trg_generate_bill",
+        "type": "DATABASE",
+        "function": {
+            "name": "trg_generate_bill_function",
+            "private": true,
+            "source_file": {
+                "path": "trg_generate_bill.js.j2",
+                "template": true
+            }
+        },
+        "config": {
+            "database": "hospital",
+            "collection": "episodes",
+            "operation_types": ["UPDATE", "REPLACE"],
+            "match_file": {
+                "path": "trg_generate_bill_match_exp.json",
+                "template": false
+            },
+            "full_document": true,
+            "full_document_before_change": true,
+            "tolerate_resume_errors": true
+        }
+    }
+]
