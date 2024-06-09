@@ -214,9 +214,12 @@ MATCH (e:Episode {id_episode: 1})-[:HAS_APPOINTMENT]->(a:Appointment)-[:CONDUCTE
 RETURN d
 
 -- 48) Obter todas as informações dos médicos que atenderam um paciente específico
-
+MATCH (p:Patient {id_patient: 1})-[:HAS_EPISODE]->(e:Episode)-[:HAS_APPOINTMENT]->(a:Appointment)-[:CONDUCTED_BY]->(d:Staff)
+RETURN p, d
 
 -- 49) Obter informações do técnico responsável por um episódio específico
+MATCH (e:Episode {id_episode: 1})-[:HAS_LAB_SCREENING]->(ls:LabScreening)-[:PERFORMED_BY]->(t:Staff)
+RETURN t
 
 -- 50) Obter todas as informações dos técnicos que atenderam um paciente específico
 MATCH (p:Patient {id_patient: 1})-[:HAS_EPISODE]->(e:Episode)-[:HAS_LAB_SCREENING]->(lab:LabScreening)-[:PERFORMED_BY]->(technician:Staff)
