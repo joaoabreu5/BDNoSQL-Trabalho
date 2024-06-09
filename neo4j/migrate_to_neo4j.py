@@ -107,6 +107,42 @@ def add_constraints(neo4j_conn : Neo4jConnection):
     # Ensure uniqueness constraint on episode
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (e:Episode) REQUIRE e.id_episode IS UNIQUE")
 
+def get_counter_id(neo4j_conn, entity_type, id_field):
+    max_id = get_max_id(neo4j_conn, entity_type, id_field)
+    increment_counter_query = f"""
+        MERGE (c:Counter {{type: '{entity_type}'}})
+        ON CREATE SET c.count = {max_id}
+        SET c.count = c.count + 1
+        RETURN c.count AS new_id
+    """
+    neo4j_conn.executeQuery(increment_counter_query)
+
+
+def get_max_id(neo4j_conn: Neo4jConnection, label: str, id_field: str) -> int:
+    result = neo4j_conn.executeQuery(f"""
+        MATCH (n:{label})
+        RETURN COALESCE(MAX(n.{id_field}), 0) AS max_id
+    """)
+    result = result.single()
+    return result['max_id']
+
+def add_counters(neo4j_conn : Neo4jConnection):
+    list = [
+            {"name": 'Patient', "id": 'id_patient'},
+            {"name": 'Staff', "id": 'id_emp'},
+            {"name": 'Room', "id": 'id_room'},
+            {"name": 'Medicine',"id": 'id_medicine'},
+            {"name": 'LabScreening', "id": 'id_lab'},
+            {"name": 'Prescription', "id": 'id_prescription'},
+            {"name": 'Episode', "id": 'id_episode'},
+            {"name": 'Bill', "id": 'id_bill'},
+            {"name": 'MedicalHistory', "id": 'id_record'},
+            {"name": 'Department', "id": 'id_department'}
+          ]
+    
+    for element in list:
+        get_counter_id(neo4j_conn, element["name"], element["id"])
+
 
 def migrate_insurance(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Query to retrieve all the insurance information
@@ -321,7 +357,7 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'is_active_status': doctor[9] == 'Y',
             'department_id': int(doctor[8]),
             'role': 'DOCTOR',
-            'qualification': doctor[10]
+            'qualification': doctor[11]
         }
         # Create doctor node
         doctor_query = create_staff_node_and_relationship(node_doctor, node_doctor['department_id'])
@@ -639,6 +675,8 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
 def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Add constraints
     add_constraints(neo4j_conn)
+    # Add counters
+    add_counters(neo4j_conn)
     # Inserção de pacientes em Neo4j
     migrate_patients(oracle_conn, neo4j_conn)
     # Insert staff elements in Neo4j
