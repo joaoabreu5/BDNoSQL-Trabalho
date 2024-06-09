@@ -1,3 +1,4 @@
+from datetime import datetime
 import neo4j.exceptions
 import oracledb
 import neo4j
@@ -117,7 +118,6 @@ def get_counter_id(neo4j_conn, entity_type, id_field):
     """
     neo4j_conn.executeQuery(increment_counter_query)
 
-
 def get_max_id(neo4j_conn: Neo4jConnection, label: str, id_field: str) -> int:
     result = neo4j_conn.executeQuery(f"""
         MATCH (n:{label})
@@ -142,7 +142,6 @@ def add_counters(neo4j_conn : Neo4jConnection):
     
     for element in list:
         get_counter_id(neo4j_conn, element["name"], element["id"])
-
 
 def migrate_insurance(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Query to retrieve all the insurance information
@@ -201,7 +200,7 @@ def migrate_patients(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnectio
             'email': patient[5],
             'gender': patient[6],
             'policy_number': patient[7],
-            'birthday': patient[8]
+            'birthday': patient[8].isoformat()
         }
 
         # Neo4j query to create the patient node and relationship with insurance
@@ -214,7 +213,7 @@ def migrate_patients(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnectio
                 p.phone = '{node_patient['phone']}',
                 p.email = '{node_patient['email']}',
                 p.gender = '{node_patient['gender']}',
-                p.birthday = '{node_patient['birthday']}'
+                p.birthday = datetime('{node_patient['birthday']}')
             ON MATCH SET
                 p.patient_fname = '{node_patient['patient_fname']}', 
                 p.patient_lname = '{node_patient['patient_lname']}',
@@ -222,7 +221,7 @@ def migrate_patients(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnectio
                 p.phone = '{node_patient['phone']}',
                 p.email = '{node_patient['email']}',
                 p.gender = '{node_patient['gender']}',
-                p.birthday = '{node_patient['birthday']}'
+                p.birthday = datetime('{node_patient['birthday']}')
             MERGE (i:Insurance {{policy_number: '{node_patient['policy_number']}'}})
             MERGE (p)-[:HAS_INSURANCE]->(i)
         """
@@ -260,14 +259,15 @@ def migrate_medical_history(oracle_conn : OracleConnection, neo4j_conn : Neo4jCo
         node_history = {
             'id_record': int(history[0]),
             'condition': history[1],
-            'record_date': history[2],
+            'record_date': history[2].isoformat()
+
         }
         # Neo4j query to create the medical history node and relationship with patient
         medical_history_query = f"""
             MATCH (p:Patient {{id_patient: {patient_id}}})
             MERGE (m:MedicalHistory {{id_record: {node_history['id_record']}}})
             ON CREATE SET m.condition = '{node_history['condition']}',
-                          m.record_date = '{node_history['record_date']}'
+                          m.record_date = datetime('{node_history['record_date']}')
             MERGE (p)-[:HAS_MEDICAL_HISTORY]->(m)
         """
         neo4j_conn.executeQuery(medical_history_query)
@@ -297,7 +297,7 @@ def create_staff_node_and_relationship(node, department_id):
         f"n.id_emp = {node['id_emp']}",
         f"n.emp_fname = '{node['emp_fname']}'",
         f"n.emp_lname = '{node['emp_lname']}'",
-        f"n.date_of_joining = '{node['date_of_joining']}'",
+        f"n.date_joining = datetime('{node['date_joining'].isoformat()}')",
         f"n.email = '{node['email']}'",
         f"n.address = '{node['address']}'",
         f"n.ssn = '{node['ssn']}'",
@@ -311,7 +311,7 @@ def create_staff_node_and_relationship(node, department_id):
     
     # Add date_separation if exists
     if node.get('date_separation'):
-        properties_str += f", n.date_separation = '{node['date_separation']}'"
+        properties_str += f", n.date_separation = datetime('{(node['date_separation'].isoformat())}')"
         # Neo4j query to create or merge the staff node and relationship with department, case in which the staff has left
         query = f"""
             MERGE (n:Staff {{id_emp: {node['id_emp']}}})
@@ -349,7 +349,7 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'id_emp': int(doctor[0]),
             'emp_fname': doctor[1],
             'emp_lname': doctor[2],
-            'date_of_joining': doctor[3],
+            'date_joining': doctor[3],
             'date_separation': doctor[4],
             'email': doctor[5],
             'address': doctor[6],
@@ -375,7 +375,7 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'id_emp': int(nurse[0]),
             'emp_fname': nurse[1],
             'emp_lname': nurse[2],
-            'date_of_joining': nurse[3],
+            'date_joining': nurse[3],
             'date_separation': nurse[4],
             'email': nurse[5],
             'address': nurse[6],
@@ -400,7 +400,7 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'id_emp': int(technician[0]),
             'emp_fname': technician[1],
             'emp_lname': technician[2],
-            'date_of_joining': technician[3],
+            'date_joining': technician[3],
             'date_separation': technician[4],
             'email': technician[5],
             'address': technician[6],
@@ -445,7 +445,7 @@ def migrate_lab_screenings(neo4j_conn: Neo4jConnection, oracle_conn: OracleConne
         node_lab_screening = {
             'id_lab': int(lab_screening[0]),
             'test_cost': float(lab_screening[1]),
-            'test_date': lab_screening[2],
+            'test_date': lab_screening[2].isoformat(),
             'id_technician': int(lab_screening[3]),
             'id_episode': int(lab_screening[4])
         }
@@ -454,9 +454,9 @@ def migrate_lab_screenings(neo4j_conn: Neo4jConnection, oracle_conn: OracleConne
         lab_screening_query = f"""
             MERGE (l:LabScreening {{id_lab: {node_lab_screening['id_lab']}}})
             ON CREATE SET l.test_cost = {node_lab_screening['test_cost']},
-                            l.test_date = '{node_lab_screening['test_date']}'
+                            l.test_date = datetime('{node_lab_screening['test_date']}')
             ON MATCH SET l.test_cost = {node_lab_screening['test_cost']},
-                            l.test_date = '{node_lab_screening['test_date']}'
+                            l.test_date = datetime('{node_lab_screening['test_date']}')
             WITH l
             MATCH (e:Episode {{id_episode: {node_lab_screening['id_episode']}}})
             MERGE (e)-[:HAS_LAB_SCREENING]->(l)
@@ -473,6 +473,7 @@ def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id
         SELECT * FROM bill WHERE bill.idepisode = {id_episode}
     """)
     for bill in bills:
+        
         node_bill = {
             'id_bill': int(bill[0]),
             'room_cost': float(bill[1]),
@@ -480,7 +481,7 @@ def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id
             'other_charges': float(bill[3]),
             'total': float(bill[4]),
             'id_episode': int(bill[5]),
-            'registered_at': bill[6], 
+            'registered_at': bill[6].isoformat(), 
             'payment_status': bill[7]
         }
 
@@ -491,13 +492,13 @@ def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id
                           b.test_cost = {node_bill['test_cost']}, 
                           b.other_charges = {node_bill['other_charges']}, 
                           b.total = {node_bill['total']}, 
-                          b.registered_at = '{node_bill['registered_at']}', 
+                          b.registered_at = datetime('{node_bill['registered_at']}'), 
                           b.payment_status = '{node_bill['payment_status']}'
             ON MATCH SET b.room_cost = {node_bill['room_cost']}, 
                          b.test_cost = {node_bill['test_cost']}, 
                          b.other_charges = {node_bill['other_charges']}, 
                          b.total = {node_bill['total']}, 
-                         b.registered_at = '{node_bill['registered_at']}', 
+                         b.registered_at = datetime('{node_bill['registered_at']}'), 
                          b.payment_status = '{node_bill['payment_status']}'
             WITH b
             MATCH (e:Episode {{id_episode: {node_bill['id_episode']}}})
@@ -542,7 +543,7 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
     for prescription in prescriptions:
         node_prescription = {
             'id_prescription': prescription[0],
-            'prescription_date': prescription[1],
+            'prescription_date': prescription[1].isoformat(),
             'dosage': prescription[2],
             'id_medicine': int(prescription[3]),
             'id_episode': int(prescription[4]),
@@ -551,9 +552,9 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
         # Neo4j query to create or merge the prescription node and relationships with episode and the medicine
         prescription_query = f"""
             MERGE (p:Prescription {{id_prescription: {node_prescription['id_prescription']}}})
-            ON CREATE SET p.prescription_date = '{node_prescription['prescription_date']}', 
+            ON CREATE SET p.prescription_date = datetime('{node_prescription['prescription_date']}'), 
                           p.dosage = '{node_prescription['dosage']}'
-            ON MATCH SET p.prescription_date = '{node_prescription['prescription_date']}', 
+            ON MATCH SET p.prescription_date = datetime('{node_prescription['prescription_date']}'), 
                          p.dosage = '{node_prescription['dosage']}'
             WITH p
             MATCH (e:Episode {{id_episode: {node_prescription['id_episode']}}})
@@ -566,8 +567,8 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
 
 def migrate_appointment(neo4j_conn: Neo4jConnection, episode):
     node_appointment = {
-        'schedule_on': episode[2],
-        'appointment_date': episode[3],
+        'schedule_on': episode[2].isoformat(),
+        'appointment_date': episode[3].isoformat(),
         'appointment_time': episode[4],
         'id_doctor': int(episode[5]),
         'id_episode': int(episode[6])
@@ -576,12 +577,12 @@ def migrate_appointment(neo4j_conn: Neo4jConnection, episode):
     # Neo4j query to create or merge the appointment node and relationship with episode and doctor
     appointment_query = f"""
         MERGE (a:Appointment {{
-            appointment_date: '{node_appointment['appointment_date']}', 
+            appointment_date: datetime('{node_appointment['appointment_date']}'), 
             appointment_time: '{node_appointment['appointment_time']}'
         }})
-        ON CREATE SET a.schedule_on = '{node_appointment['schedule_on']}', 
+        ON CREATE SET a.schedule_on = datetime('{node_appointment['schedule_on']}'), 
                       a.id_doctor = {node_appointment['id_doctor']}
-        ON MATCH SET a.schedule_on = '{node_appointment['schedule_on']}', 
+        ON MATCH SET a.schedule_on = datetime('{node_appointment['schedule_on']}'), 
                      a.id_doctor = {node_appointment['id_doctor']}
         WITH a
         MATCH (e:Episode {{id_episode: {node_appointment['id_episode']}}})
@@ -592,21 +593,28 @@ def migrate_appointment(neo4j_conn: Neo4jConnection, episode):
     """
     neo4j_conn.executeQuery(appointment_query)
 
-def migrate_hospitalization(neo4j_conn : Neo4jConnection, episode):
+def migrate_hospitalization(neo4j_conn, episode):
+    # Convert admission_date to ISO 8601 format
+    admission_date = episode[7].isoformat()
     
+    # Check if discharge_date is present and convert to ISO 8601 format if it is
+    discharge_date = episode[8].isoformat() if episode[8] is not None else None
+
     node_hospitalization = {
-        'admission_date': episode[7],
-        'discharge_date': episode[8],
+        'admission_date': admission_date,
+        'discharge_date': discharge_date,
         'id_room': int(episode[9]),
         'id_episode': int(episode[10]),
         'responsible_nurse': int(episode[11])
     }
 
+    # Build the dynamic part of the query for discharge_date
+    discharge_date_clause = f", discharge_date: datetime('{node_hospitalization['discharge_date']}')" if node_hospitalization['discharge_date'] else ""
+
     # Neo4j query to create the hospitalization node and relationship with episode
     hospitalization_query = f"""
         MERGE (h:Hospitalization {{
-            admission_date: '{node_hospitalization['admission_date']}', 
-            discharge_date: '{node_hospitalization['discharge_date']}'
+            admission_date: datetime('{node_hospitalization['admission_date']}'){discharge_date_clause}
         }})
         WITH h
         MATCH (e:Episode {{id_episode: {node_hospitalization['id_episode']}}})
