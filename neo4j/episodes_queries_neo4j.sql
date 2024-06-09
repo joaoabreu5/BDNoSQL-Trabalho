@@ -149,21 +149,45 @@ MATCH (d:Staff {id_emp: 1})<-[:CONDUCTED_BY]-(a:Appointment)
 RETURN a
 
 -- 36) Contar Appointments por Médico (id_doctor)
-
+MATCH (d:Staff)<-[:CONDUCTED_BY]-(a:Appointment)
+WITH d, count(a) AS appointment_count
+RETURN d.id_emp AS doctor_id, d.emp_fname AS doctor_first_name, d.emp_lname AS doctor_last_name, appointment_count
+ORDER BY appointment_count DESC
 
 -- 37) Calcular o Total de Medicamentos e Custo Total
+MATCH (m:Medicine)
+RETURN sum(m.m_quantity) AS total_quantity, 
+       sum(m.m_quantity * m.m_cost) AS total_cost
 
 -- 38) Calcular o Total de Cada Medicamento Usado e o Custo Total
+MATCH (m:Medicine)
+WITH m.id_medicine AS medicine_id, 
+     m.m_name AS medicine_name, 
+     sum(m.m_quantity) AS total_quantity, 
+     sum(m.m_quantity * m.m_cost) AS total_cost
+RETURN medicine_id, medicine_name, total_quantity, total_cost
+ORDER BY total_quantity DESC
 
 -- 39) Calcular o Total de test_costs e a Contagem de Testes Realizados
+MATCH (ls:LabScreening)
+RETURN count(ls) AS total_lab_screenings, 
+       sum(ls.test_cost) AS total_test_cost
 
--- 40) Buscar Todas as bills Registradas Entre Duas Datas 
+-- 40) Buscar Todas as Bills Registadas Entre Duas Datas
+MATCH (b:Bill)
+WHERE date(b.registered_at) >= date('2024-01-01') AND date(b.registered_at) <= date('2024-12-31')
+RETURN b
 
 -- 41) Buscar Pacientes com um payment_status Específico
+MATCH (p:Patient)-[:HAS_EPISODE]->(e:Episode)-[:HAS_BILL]->(b:Bill)
+WHERE b.payment_status = 'PENDING'
+RETURN p
 
--- 42) Buscar Todas as bills com Detalhes dos Pacientes
+-- 42) Buscar Todas as bills com para um determinado Paciente
+MATCH (p:Patient {id_patient: 2})-[:HAS_EPISODE]->(e:Episode)-[:HAS_BILL]->(b:Bill)
+RETURN b
 
--- 43) Calcular o Custo Total das bills Registradas Entre Duas Datas
+-- 43) Calcular o Custo Total das Bills Registadas Entre Duas Datas
 
 -- 44) Todos os episódios que ainda não acabaram
 
