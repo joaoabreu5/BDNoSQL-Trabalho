@@ -374,3 +374,44 @@ function getPatientsByRecordId(recordId) {
 
 var recordId = 21; 
 getPatientsByRecordId(recordId);
+
+// 33) 56) Listar episódios médicos por tipo de condição
+function getEpisodesByCondition(condition) {
+  return db.patients.aggregate([
+      {
+          $unwind: "$medical_history"
+      },
+      {
+          $match: { "medical_history.condition": condition }
+      },
+      {
+          $lookup: {
+              from: "episodes",
+              localField: "_id",
+              foreignField: "id_patient",
+              as: "episodes"
+          }
+      },
+      {
+          $unwind: "$episodes"
+      },
+      {
+          $project: {
+              _id: 0,
+              id_episode: "$episodes.id_episode",
+              id_patient: "$id_patient",
+              patient_fname: "$patient_fname",
+              patient_lname: "$patient_lname",
+              condition: "$medical_history.condition",
+              // prescriptions: "$episodes.prescriptions",
+              // bills: "$episodes.bills",
+              // lab_screenings: "$episodes.lab_screenings",
+              // hospitalization: "$episodes.hospitalization",
+              // appointment: "$episodes.appointment"
+          }
+      }
+  ]).toArray();
+}
+
+// Chamada da função
+getEpisodesByCondition("Diabetes")

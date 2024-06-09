@@ -172,6 +172,40 @@ function getPrescriptionsByPatientId(patientId) {
 
 getPrescriptionsByPatientId(ObjectId("666325843b1ae18c2cd22c4d"));
 
+function getAllPrescriptionsForPatient(patientId) {
+    return db.episodes.aggregate([
+        {
+            $match: { id_patient: ObjectId(patientId) }
+        },
+        {
+            $unwind: "$prescriptions"
+        },
+        {
+            $lookup: {
+                from: "patients",
+                localField: "id_patient",
+                foreignField: "_id",
+                as: "patient_info"
+            }
+        },
+        {
+            $unwind: "$patient_info"
+        },
+        {
+            $project: {
+                _id: 0,
+                patient_id: "$id_patient",
+                patient_fname: "$patient_info.patient_fname",
+                patient_lname: "$patient_info.patient_lname",
+                prescription: "$prescriptions"
+            }
+        }
+    ]).toArray();
+}
+
+// Chamada da função
+getAllPrescriptionsForPatient("666325843b1ae18c2cd22c52")
+
 // 13) Buscar Bills por id_patient
 function getBillsByPatientId(patientId) {
     return db.episodes.aggregate([
@@ -958,3 +992,490 @@ db.episodes.aggregate([
             }
         }
     ])
+
+// 53) Listar os pacientes alocados a um específico quarto
+function getPatientsByRoom(roomId) {
+    return db.episodes.aggregate([
+        {
+            $match: { "hospitalization.room.id_room": roomId }
+        },
+        {
+            $lookup: {
+                from: "patients",
+                localField: "id_patient",
+                foreignField: "_id",
+                as: "patient_info"
+            }
+        },
+        {
+            $unwind: "$patient_info"
+        },
+        {
+            $project: {
+                _id: 0,
+                patient_id: "$patient_info._id",
+                patient_fname: "$patient_info.patient_fname",
+                patient_lname: "$patient_info.patient_lname",
+                room: "$room"
+            }
+        }
+    ]).toArray();
+}
+    
+getPatientsByRoom(1)
+    
+// 54) Listar hospitalizações por enfermeira responsável
+function getHospitalizationsByNurse(nurseId) {
+    return db.episodes.aggregate([
+        {
+            $match: { "hospitalization.responsible_nurse": ObjectId(nurseId) }
+        },
+        {
+            $lookup: {
+                from: "staff",
+                localField: "hospitalization.responsible_nurse",
+                foreignField: "_id",
+                as: "nurse_info"
+            }
+        },
+        {
+            $unwind: "$nurse_info"
+        },
+        {
+            $project: {
+                _id: 0,
+                id_episode: 1,
+                id_patient: 1,
+                hospitalization: 1,
+                nurse_fname: "$nurse_info.emp_fname",
+                nurse_lname: "$nurse_info.emp_lname"
+            }
+        }
+    ]).toArray();
+}
+
+getHospitalizationsByNurse("666325853b1ae18c2cd22ce9")
+
+// 55) Listar todos os episódios médicos de um paciente específico
+function getAllEpisodesForPatient(patientId) {
+    return db.episodes.aggregate([
+        {
+            $match: { id_patient: ObjectId(patientId) }
+        },
+        {
+            $lookup: {
+                from: "patients",
+                localField: "id_patient",
+                foreignField: "_id",
+                as: "patient_info"
+            }
+        },
+        {
+            $unwind: "$patient_info"
+        },
+        {
+            $project: {
+                _id: 0,
+                id_episode: 1,
+                id_patient: 1,
+                patient_fname: "$patient_info.patient_fname",
+                patient_lname: "$patient_info.patient_lname",
+                // prescriptions: 1,
+                // bills: 1,
+                // lab_screenings: 1,
+                // hospitalization: 1,
+                // appointment: 1
+            }
+        }
+    ]).toArray();
+}
+
+getAllEpisodesForPatient("666325843b1ae18c2cd22c52")
+
+// 56) Listar todos os episódios médicos de um doctor
+function getEpisodesByDoctor(doctorId) {
+    return db.episodes.aggregate([
+        {
+            $match: { "appointment.id_doctor": ObjectId(doctorId) }
+        },
+        {
+            $lookup: {
+                from: "staff",
+                localField: "appointment.id_doctor",
+                foreignField: "_id",
+                as: "doctor_info"
+            }
+        },
+        {
+            $unwind: "$doctor_info"
+        },
+        {
+            $project: {
+                _id: 0,
+                id_episode: 1,
+                id_patient: 1,
+                doctor_fname: "$doctor_info.emp_fname",
+                doctor_lname: "$doctor_info.emp_lname",
+                // prescriptions: 1,
+                // bills: 1,
+                // lab_screenings: 1,
+                // hospitalization: 1,
+                appointment: 1
+            }
+        }
+    ]).toArray();
+}
+
+getEpisodesByDoctor("666325853b1ae18c2cd22cae")
+
+// 57) Listar exames baseados no técnico responsável
+function getLabScreeningsByTechnician(technicianId) {
+    return db.episodes.aggregate([
+        {
+            $unwind: "$lab_screenings"
+        },
+        {
+            $match: { "lab_screenings.id_technician": ObjectId(technicianId) }
+        },
+        {
+            $lookup: {
+                from: "staff",
+                localField: "lab_screenings.id_technician",
+                foreignField: "_id",
+                as: "technician_info"
+            }
+        },
+        {
+            $unwind: "$technician_info"
+        },
+        {
+            $project: {
+                _id: 0,
+                id_episode: 1,
+                id_patient: 1,
+                lab_id: "$lab_screenings.lab_id",
+                test_cost: "$lab_screenings.test_cost",
+                test_date: "$lab_screenings.test_date",
+                technician_fname: "$technician_info.emp_fname",
+                technician_lname: "$technician_info.emp_lname"
+            }
+        }
+    ]).toArray();
+}
+
+getLabScreeningsByTechnician("666325853b1ae18c2cd22d07")
+
+// 58) Listar todos os episódios e o respectivo paciente
+db.episodes.aggregate([
+    {
+        $lookup: {
+            from: "patients",
+            localField: "id_patient",
+            foreignField: "_id",
+            as: "patient_info"
+        }
+    },
+    {
+        $unwind: "$patient_info"
+    },
+    {
+        $project: {
+            _id: 0,
+            id_episode: 1,
+            id_patient: "$patient_info.id_patient$",
+            patient_fname: "$patient_info.patient_fname",
+            patient_lname: "$patient_info.patient_lname",
+            // prescriptions: 1,
+            // bills: 1
+            // lab_screenings: 1,
+            // hospitalization: 1,
+            // appointment: 1
+        }
+    }
+])
+
+// 59) Buscar Appointment por data e depois por hora
+function getAppointmentsByDateAndTime(date, time) {
+    return db.episodes.aggregate([
+        {
+            $unwind: "$appointment"
+        },
+        {
+            $match: {
+                "appointment.appointment_date": new Date(date),
+                "appointment.appointment_time": time
+            }
+        },
+        {
+            $lookup: {
+                from: "patients",
+                localField: "id_patient",
+                foreignField: "_id",
+                as: "patient_info"
+            }
+        },
+        {
+            $unwind: "$patient_info"
+        },
+        {
+            $project: {
+                _id: 0,
+                id_episode: 1,
+                id_patient: 1,
+                patient_fname: "$patient_info.patient_fname",
+                patient_lname: "$patient_info.patient_lname",
+                appointment: 1,
+            }
+        }
+    ]).toArray();
+}
+
+getAppointmentsByDateAndTime("2023-06-08T00:00:00.000+00:00", "14:00")
+
+// 60) Lista os médicos com mais consultas marcadas
+db.episodes.aggregate([
+        {
+            $unwind: "$appointment"
+        },
+        {
+            $group: {
+                _id: "$appointment.id_doctor",
+                totalAppointments: { $sum: 1 }
+            }
+        },
+        {
+            $sort: { totalAppointments: -1 }
+        },
+        {
+            $lookup: {
+                from: "staff",
+                localField: "_id",
+                foreignField: "_id",
+                as: "doctor_info"
+            }
+        },
+        {
+            $unwind: "$doctor_info"
+        },
+        {
+            $lookup: {
+                from: "episodes",
+                localField: "_id",
+                foreignField: "appointment.id_doctor",
+                as: "appointments"
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                doctor_id: "$_id",
+                doctor_fname: "$doctor_info.emp_fname",
+                doctor_lname: "$doctor_info.emp_lname",
+                doctor_email: "$doctor_info.email",
+                totalAppointments: 1,
+            }
+        }
+    ])
+
+// 61) Lista os médicos com mais consultas marcadas, com informação detalhada do paciente
+db.episodes.aggregate([
+            {
+                $unwind: "$appointment"
+            },
+            {
+                $group: {
+                    _id: "$appointment.id_doctor",
+                    totalAppointments: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { totalAppointments: -1 }
+            },
+            {
+                $lookup: {
+                    from: "staff",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "doctor_info"
+                }
+            },
+            {
+                $unwind: "$doctor_info"
+            },
+            {
+                $lookup: {
+                    from: "episodes",
+                    localField: "doctor_info._id",
+                    foreignField: "appointment.id_doctor",
+                    as: "appointments"
+                }
+            },
+            {
+                $unwind: "$appointments"
+            },
+            {
+                $lookup: {
+                    from: "patients",
+                    localField: "appointments.id_patient",
+                    foreignField: "_id",
+                    as: "patient_info"
+                }
+            },
+            {
+                $unwind: "$patient_info"
+            },
+            {
+                $group: {
+                    _id: "$_id",
+                    doctor_id: { $first: "$doctor_info._id" },
+                    doctor_fname: { $first: "$doctor_info.emp_fname" },
+                    doctor_lname: { $first: "$doctor_info.emp_lname" },
+                    doctor_email: { $first: "$doctor_info.email" },
+                    totalAppointments: { $first: "$totalAppointments" },
+                    patients: {
+                        $push: {
+                            patient_id: "$patient_info._id",
+                            patient_fname: "$patient_info.patient_fname",
+                            patient_lname: "$patient_info.patient_lname",
+                            patient_email: "$patient_info.email",
+                            appointment_id: "$appointments.appointment.appointment_id",
+                            appointment_date: "$appointments.appointment.date"
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    doctor_id: 1,
+                    doctor_fname: 1,
+                    doctor_lname: 1,
+                    doctor_email: 1,
+                    totalAppointments: 1,
+                    patients: 1
+                }
+            }
+        ])
+
+// 62) Listar todas as faturas emitidas por um médico específico
+// function getBillsByDoctor(doctorId) {
+//     return db.episodes.aggregate([
+//         {
+//             $unwind: "$appointment"
+//         },
+//         {
+//             $match: { "appointment.id_doctor": ObjectId(doctorId) }
+//         },
+//         {
+//             $lookup: {
+//                 from: "patients",
+//                 localField: "id_patient",
+//                 foreignField: "_id",
+//                 as: "patient_info"
+//             }
+//         },
+//         {
+//             $unwind: "$patient_info"
+//         },
+//         {
+//             $unwind: "$bills"
+//         },
+//         {
+//             $project: {
+//                 _id: 0,
+//                 id_episode: 1,
+//                 id_patient: 1,
+//                 patient_fname: "$patient_info.patient_fname",
+//                 patient_lname: "$patient_info.patient_lname",
+//                 bill_id: "$bills.bill_id",
+//                 amount: "$bills.amount",
+//                 date: "$bills.date",
+//                 doctor_id: "$appointment.id_doctor"
+//             }
+//         },
+//         {
+//             $match: { doctor_id: ObjectId(doctorId) }
+//         }
+//     ]).toArray();
+// }
+
+// getBillsByDoctor("666325853b1ae18c2cd22cab")
+
+// 62) Listar os Appointments para um dado Médico (por dia)
+// function getAppointmentsByDoctorByDay(doctorId) {
+//     return db.episodes.aggregate([
+//         {
+//             $unwind: "$appointment"
+//         },
+//         {
+//             $addFields: {
+//                 "appointment.dateString": {
+//                     $dateToString: { format: "%Y-%m-%d", date: "$appointment.date" }
+//                 }
+//             }
+//         },
+//         {
+//             $match: { "appointment.id_doctor": ObjectId(doctorId) }
+//         },
+//         {
+//             $lookup: {
+//                 from: "patients",
+//                 localField: "id_patient",
+//                 foreignField: "_id",
+//                 as: "patient_info"
+//             }
+//         },
+//         {
+//             $unwind: "$patient_info"
+//         },
+//         {
+//             $lookup: {
+//                 from: "staff",
+//                 localField: "appointment.id_doctor",
+//                 foreignField: "_id",
+//                 as: "staff_info"
+//             }
+//         },
+//         {
+//             $unwind: "$staff_info"
+//         },
+//         {
+//             $group: {
+//                 _id: {
+//                     date: "$appointment.dateString",
+//                     doctor_id: "$staff_info.emp_id"
+//                 },
+//                 appointments: {
+//                     $push: {
+//                         appointment_id: "$appointment.appointment_id",
+//                         appointment_date: "$appointment.date",
+//                         appointment_time: "$appointment.time",
+//                         patient_id: "$patient_info._id",
+//                         patient_fname: "$patient_info.patient_fname",
+//                         patient_lname: "$patient_info.patient_lname"
+//                     }
+//                 },
+//                 total_appointments: { $sum: 1 },
+//                 doctor_lname: { $first: "$staff_info.emp_lname" },
+//                 doctor_fname: { $first: "$staff_info.emp_fname" }
+//             }
+//         },
+//         {
+//             $project: {
+//                 _id: 1,
+//                 date: "$_id.date",
+//                 doctor_id: "$_id.doctor_id",
+//                 doctor_lname: 1,
+//                 doctor_fname: 1,
+//                 total_appointments: 1,
+//                 appointments: 1
+//             }
+//         },
+//         {
+//             $sort: { date: 1 }
+//         }
+//     ]).toArray();
+// }
+
+// // Example usage
+// getAppointmentsByDoctorByDay("666325853b1ae18c2cd22cc0");
