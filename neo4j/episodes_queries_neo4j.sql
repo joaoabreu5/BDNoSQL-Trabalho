@@ -79,8 +79,14 @@ MATCH (medicine:Medicine {m_name: "Amoxicillin"})
 RETURN medicine
 
 -- 22) Buscar prescrições em uma data específica
+MATCH (pr:Prescription)
+WHERE date(pr.prescription_date) = date('2023-11-29')
+RETURN pr
 
 -- 23) Buscar prescrições entre duas datas
+MATCH (pr:Prescription)
+WHERE date(pr.prescription_date) >= date('2023-01-01') AND date(pr.prescription_date) <= date('2023-12-31')
+RETURN pr
 
 -- 24) Buscar prescrições entre duas dosages
 MATCH (prescription:Prescription)
@@ -100,6 +106,9 @@ RETURN
     SUM(toFloat(bill.room_cost) + toFloat(bill.test_cost) + toFloat(bill.other_charges)) AS totalCost
 
 -- 27) LabScreening por intervalo de datas
+MATCH (ls:LabScreening)
+WHERE date(ls.test_date) >= date('2023-01-01') AND date(ls.test_date) <= date('2023-12-31')
+RETURN ls
 
 -- 28) LabScreening por intervalo de custo
 MATCH (lab:LabScreening)
@@ -107,6 +116,10 @@ WHERE toFloat(lab.test_cost) >= 10 AND toFloat(lab.test_cost) <= 100
 RETURN lab
 
 -- 29) Buscar registos de hospitalização com base em um intervalo de datas de admissão e alta
+MATCH (h:Hospitalization)
+WHERE (date(h.admission_date) >= date('2023-01-01') AND date(h.admission_date) <= date('2023-12-31'))
+   OR (date(h.discharge_date) >= date('2023-01-01') AND date(h.discharge_date) <= date('2023-12-31'))
+RETURN h
 
 -- 30) Buscar appointments por id_patient
 MATCH (p:Patient {id_patient: 89})-[:HAS_EPISODE]->(e:Episode)-[:HAS_APPOINTMENT]->(appointment:Appointment)
@@ -116,18 +129,27 @@ RETURN appointment
 MATCH (e:Episode {id_episode: 10})-[:HAS_APPOINTMENT]->(appointment:Appointment)
 RETURN appointment
 
--- 32) Buscar todos os appointments agendados (schedule_on) para uma data específica
+-- 32) Buscar todos os appointments agendados (schedule_on) em uma data específica
+MATCH (a:Appointment)
+WHERE date(a.schedule_on) = date('2023-10-28')
+RETURN a
 
 -- 33) Buscar todos os appointments para uma appointment_date específica
+MATCH (a:Appointment)
+WHERE date(a.appointment_date) = date('2023-11-29')
+RETURN a
 
 -- 34) Buscar todos os appointments para um horário específico (appointment_time)
+MATCH (a:Appointment)
+WHERE a.appointment_time = '18:11'
+RETURN a
 
 -- 35) Buscar Todos os Appointments por id_doctor
-ERRO
-MATCH (doctor:Staff {id_emp: 82, role: 'DOCTOR'})-[:CONDUCTED_BY]->(appointment:Appointment {id_doctor: 82})
-RETURN appointment
+MATCH (d:Staff {id_emp: 1})<-[:CONDUCTED_BY]-(a:Appointment)
+RETURN a
 
 -- 36) Contar Appointments por Médico (id_doctor)
+
 
 -- 37) Calcular o Total de Medicamentos e Custo Total
 
