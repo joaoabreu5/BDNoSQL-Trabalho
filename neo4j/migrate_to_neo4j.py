@@ -120,14 +120,15 @@ def get_counter_id(neo4j_conn, entity_type, id_field):
 def get_max_id(neo4j_conn: Neo4jConnection, label: str, id_field: str) -> int:
     result = neo4j_conn.executeQuery(f"""
         MATCH (n:{label})
-        RETURN COALESCE(MAX(n.{id_field}), 0) AS max_id
+        RETURN COUNT(n) AS count_id
     """)
     result = result.single()
-    return result['max_id']
+    return result['count_id']
 
 def add_counters(neo4j_conn : Neo4jConnection):
     list = [
             {"name": 'Patient', "id": 'id_patient'},
+            {"name": 'Insurance', "id": 'policy_number'},
             {"name": 'Staff', "id": 'id_emp'},
             {"name": 'Room', "id": 'id_room'},
             {"name": 'Medicine',"id": 'id_medicine'},
@@ -679,6 +680,9 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
                 # Migrate episode hospitalization
                 migrate_hospitalization(neo4j_conn, episode)
 
+query="""
+    CREATE (i:Insurance {policy_number: '123456', provider: 'Blue Cross', insurance_plan: 'Gold', co_pay: 20.0, coverage: 'Full', maternity: true, dental: true, optical: true})
+"""
 
 def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Add constraints
