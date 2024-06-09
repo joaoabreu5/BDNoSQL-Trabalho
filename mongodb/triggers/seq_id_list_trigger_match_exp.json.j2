@@ -6,9 +6,25 @@
                     "insert",
                     "replace"
                 ]
+            },
+            "$expr": {
+                "$and": [
+                    {
+                        "$isArray": "$fullDocument.{{ list_name }}"
+                    },
+                    {
+                        "$gt": [
+                            {
+                                "$size": "$fullDocument.{{ list_name }}"
+                            },
+                            0
+                        ]
+                    }
+                ]
             }
         },
         {
+            "operationType": "update",
             "$expr": {
                 "$gt": [
                     {
