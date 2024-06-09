@@ -1,16 +1,33 @@
 {
     "$or": [
         {
-            "operationType": {
-                "$in": [
-                    "insert",
-                    "replace"
-                ]
-            }
+            "operationType": "insert"
         },
         {
-            "updateDescription.updatedFields.{{ field_name }}": {
-                "$exists": true
+            "operationType": "replace",
+            "$or": [
+                {
+                    "fullDocument.{{ field_name }}": {
+                        "$exists": false
+                    }
+                },
+                {
+                    "$expr": {
+                        "$gt": [
+                            "$fullDocument.{{ field_name }}",
+                            "$fullDocumentBeforeChange.{{ field_name }}"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "operationType": "update",
+            "$expr": {
+                "$gt": [
+                    "$updateDescription.updatedFields.{{ field_name }}",
+                    "$fullDocumentBeforeChange.{{ field_name }}"
+                ]
             }
         }
     ]

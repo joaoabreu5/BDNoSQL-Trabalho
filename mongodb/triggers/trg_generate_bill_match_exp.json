@@ -1,14 +1,6 @@
 {
     "fullDocumentBeforeChange.hospitalization.discharge_date": null,
-    "$expr": {
-        "$ne": [
-            {
-                "$getField": {
-                    "input": "$updateDescription.updatedFields",
-                    "field": "hospitalization.discharge_date"
-                }
-            },
-            null
-        ]
+    "fullDocument.hospitalization.discharge_date": {
+        "$ne": null
     }
 }
