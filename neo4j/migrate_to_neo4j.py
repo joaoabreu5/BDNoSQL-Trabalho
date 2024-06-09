@@ -113,7 +113,6 @@ def get_counter_id(neo4j_conn, entity_type, id_field):
     increment_counter_query = f"""
         MERGE (c:Counter {{type: '{entity_type}'}})
         ON CREATE SET c.count = {max_id}
-        SET c.count = c.count + 1
         RETURN c.count AS new_id
     """
     neo4j_conn.executeQuery(increment_counter_query)
@@ -484,6 +483,7 @@ def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id
             'registered_at': bill[6].isoformat(), 
             'payment_status': bill[7]
         }
+        
 
         # Neo4j query to create or merge the bill node and relationship with episode
         bill_query = f"""
@@ -683,14 +683,14 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
 def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Add constraints
     add_constraints(neo4j_conn)
-    # Add counters
-    add_counters(neo4j_conn)
     # Inserção de pacientes em Neo4j
     migrate_patients(oracle_conn, neo4j_conn)
     # Insert staff elements in Neo4j
     migrate_staff(oracle_conn, neo4j_conn)
     # Insert episode elements in Neo4j
     migrate_episodes(oracle_conn, neo4j_conn)
+    # Add counters
+    add_counters(neo4j_conn)
 
 
 def main():
