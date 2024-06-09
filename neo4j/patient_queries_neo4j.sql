@@ -79,11 +79,20 @@ MATCH (p:Patient)-[:HAS_MEDICAL_HISTORY]->(mh:MedicalHistory)
 RETURN mh.condition AS condition, COUNT(p) AS number_of_patients
 ORDER BY number_of_patients DESC
 
--- 20) Buscar Pacientes com Registros Médico em uma Data Específica
+-- 20) Buscar Pacientes com Registos Médicos em uma Data Específica
+MATCH (p:Patient)-[:HAS_MEDICAL_HISTORY]->(mh:MedicalHistory)
+WHERE date(mh.record_date) = date('2023-12-10')
+RETURN p, mh
 
--- 21) Buscar Pacientes com Registros Médico em um intervalo de datas
+-- 21) Buscar Pacientes com Registos Médicos em um intervalo de datas
+MATCH (p:Patient)-[:HAS_MEDICAL_HISTORY]->(mh:MedicalHistory)
+WHERE date(mh.record_date) >= date('2023-01-15') AND date(mh.record_date) <= date('2023-12-10')
+RETURN p, mh
 
 -- 22) Buscar Pacientes com a data de aniversário
+MATCH (p:Patient)
+WHERE date(p.birthday) = date('1985-07-15')
+RETURN p
 
 -- 23) Buscar Pacientes por InsuranceProvider
 MATCH (p:Patient)-[:HAS_INSURANCE]->(i:Insurance {provider: 'VWX Insurance'})
@@ -98,6 +107,9 @@ MATCH (p:Patient)-[:HAS_INSURANCE]->(i:Insurance {coverage: 'Full Coverage'})
 RETURN p, i
 
 -- 26) Buscar Pacientes por um intervalo de Idades
+MATCH (p:Patient)
+WHERE date(p.birthday) >= date('1980-01-01') AND date(p.birthday) <= date('1990-12-31')
+RETURN p
 
 -- 27) Buscar Pacientes com Maternity Coverage
 MATCH (p:Patient)-[:HAS_INSURANCE]->(i:Insurance)

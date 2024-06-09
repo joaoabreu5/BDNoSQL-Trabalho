@@ -43,8 +43,14 @@ MATCH (d:Department)
 RETURN COUNT(d) AS number_of_departments
 
 -- 11) Buscar Staff por Date_Joining
+MATCH (s:Staff)
+WHERE date(s.date_joining) = date('2018-08-25')
+RETURN s
 
 -- 12) Buscar Staff por Date_Separation
+MATCH (s:Staff)
+WHERE date(s.date_separation) = date('2022-01-05')
+RETURN s
 
 -- 13) Get Staff Members that are active or inactive
 MATCH (s:Staff)

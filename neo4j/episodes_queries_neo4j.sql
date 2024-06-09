@@ -106,7 +106,7 @@ MATCH (lab:LabScreening)
 WHERE toFloat(lab.test_cost) >= 10 AND toFloat(lab.test_cost) <= 100
 RETURN lab
 
--- 29) Buscar registros de hospitalização com base em um intervalo de datas de admissão e alta
+-- 29) Buscar registos de hospitalização com base em um intervalo de datas de admissão e alta
 
 -- 30) Buscar appointments por id_patient
 MATCH (p:Patient {id_patient: 89})-[:HAS_EPISODE]->(e:Episode)-[:HAS_APPOINTMENT]->(appointment:Appointment)
@@ -172,7 +172,7 @@ RETURN p,
        COLLECT(DISTINCT hospitalization) AS hospitalizations, 
        COLLECT(DISTINCT lab) AS labScreenings
 
-//--52) Retornar informações de todos os pacientes 
+--52) Retornar informações de todos os pacientes 
 MATCH (p:Patient)
 OPTIONAL MATCH (p)-[:HAS_EPISODE]->(e:Episode)
 OPTIONAL MATCH (e)-[:HAS_APPOINTMENT]->(appointment:Appointment)
