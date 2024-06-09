@@ -188,16 +188,33 @@ MATCH (p:Patient {id_patient: 2})-[:HAS_EPISODE]->(e:Episode)-[:HAS_BILL]->(b:Bi
 RETURN b
 
 -- 43) Calcular o Custo Total das Bills Registadas Entre Duas Datas
+MATCH (b:Bill)
+WHERE date(b.registered_at) >= date('2024-01-01') AND date(b.registered_at) <= date('2024-12-31')
+RETURN sum(b.total) AS total_cost
 
 -- 44) Todos os episódios que ainda não acabaram
+MATCH (e:Episode)
+OPTIONAL MATCH (e)-[:HAS_HOSPITALIZATION]->(h:Hospitalization)
+OPTIONAL MATCH (e)-[:HAS_APPOINTMENT]->(a:Appointment)
+WITH e, h, a, datetime() AS current_date
+WHERE (a IS NOT NULL AND date(a.appointment_date) > date(current_date)) OR
+      (h IS NOT NULL AND date(h.admission_date) <= date(current_date) AND (h.discharge_date IS NULL OR date(h.discharge_date) >= date(current_date)))
+RETURN e, h, a
 
 -- 45) Buscar enfermeira responsável para um episódio específico
+MATCH (e:Episode {id_episode: 2})-[:HAS_HOSPITALIZATION]->(h:Hospitalization)-[:RESPONSIBLE_NURSE]->(n:Staff)
+RETURN n
 
 -- 46) Obter todas as enfermeiras que já cuidaram de um determinado paciente
+MATCH (p:Patient {id_patient: 2})-[:HAS_EPISODE]->(e:Episode)-[:HAS_HOSPITALIZATION]->(h:Hospitalization)-[:RESPONSIBLE_NURSE]->(n:Staff)
+RETURN p, n
 
 -- 47) Obter informações do médico responsável por um episódio específico
+MATCH (e:Episode {id_episode: 1})-[:HAS_APPOINTMENT]->(a:Appointment)-[:CONDUCTED_BY]->(d:Staff)
+RETURN d
 
 -- 48) Obter todas as informações dos médicos que atenderam um paciente específico
+
 
 -- 49) Obter informações do técnico responsável por um episódio específico
 
