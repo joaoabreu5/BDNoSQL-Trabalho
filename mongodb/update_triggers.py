@@ -129,50 +129,29 @@ def get_groupId(public_key : str, private_key : str, groupName : str) -> str | N
     return groupId
 
 
-def get_appId(access_token : str, groupId : str, cluster_name : str) -> str | None:
+# https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Project-and-Application-IDs
+# https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminListApplications
+def get_appId(access_token : str, groupId : str) -> str | None:
+    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
+
     headers = {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
         'Authorization': f'Bearer {access_token}'
     }
     
     appId = None
     
-    # GET Apps list
-    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#section/Project-and-Application-IDs
-    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminListApplications
-    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
+    response = requests.get(url, headers=headers)
+    success = check_response_status(response, 200)
     
-    response_GET = requests.get(url, headers=headers)
-    success_GET = check_response_status(response_GET, 200)
-    
-    if success_GET:
-        response_body_GET = response_GET.json()
+    if success:
+        response_body = response.json()
         
-        for value in response_body_GET:
+        for value in response_body:
             if 'product' in value and value['product'] == 'atlas':
                 appId = value['_id']
                 break
         
-        if appId is None:
-            # POST a new App (of 'atlas' type, for Atlas Triggers)
-            # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/apps/operation/adminCreateApplication
-            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps?product=atlas'
-            
-            body = {
-                'name': 'Triggers',
-                'data_source': get_data_source_config(cluster_name)
-            }
-            
-            response_POST = requests.post(url, headers=headers, data=json.dumps(body))
-            success_POST = check_response_status(response_POST, 201)
-            
-            if success_POST:
-                response_body_POST = response_POST.json()
-                
-                appId = response_body_POST['_id']
-    
-    
     return appId
 
 
@@ -238,7 +217,7 @@ def get_service_id_and_name(access_token : str, groupId : str, appId : str, clus
     
     return service_id, service_name
 
-
+        
 def get_function_and_trigger_data(triggers_config : dict, trigger_name : str, service_id : str, service_name : str, j2_env: jinja2.Environment, config_dir : str) -> tuple[dict | None, dict | None]:
     trigger_data = None
     function_data = None
@@ -318,42 +297,58 @@ def get_function_and_trigger_data(triggers_config : dict, trigger_name : str, se
     return function_data, trigger_data
 
 
-def create_trigger(access_token: str, groupId : str, appId : str, function_data : dict, trigger_data : dict):
+def update_trigger(access_token : str, groupId : str, appId : str, functionId : str, triggerId : str, function_data : dict, trigger_data : dict):
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {access_token}'
     }
     
-    # POST JavaScript Trigger Function
-    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/functions/operation/adminCreateFunction
-    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/functions'
+    # Update function
+    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/functions/operation/adminUpdateFunction
+    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/functions/{functionId}'
     
-    response_POST_function = requests.post(url, headers=headers, data=json.dumps(function_data))
-    success_POST_function = check_response_status(response_POST_function, 201)
+    response_PUT_update_function = requests.put(url, headers=headers, data=json.dumps(function_data))
+    success_PUT_update_function = check_response_status(response_PUT_update_function, 204)
     
-    if success_POST_function:
-        response_body_POST_function = response_POST_function.json()
+    if success_PUT_update_function:
+        # Update trigger
+        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminUpdateTrigger
+        url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers/{triggerId}'
         
-        # POST Trigger
-        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminCreateTrigger
-        if '_id' in response_body_POST_function:
-            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers'
-            
-            trigger_data['function_id'] = response_body_POST_function['_id']
-            
-            response_POST_trigger = requests.post(url, headers=headers, data=json.dumps(trigger_data))
-            
-            check_response_status(response_POST_trigger, 201)
-    
-    
-def create_triggers(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, triggers_config : dict, config_dir : str):
-    j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=config_dir))
-    
-    for trigger_name in triggers_config:
-        function_data, trigger_data = get_function_and_trigger_data(triggers_config, trigger_name, service_id, service_name, j2_env, config_dir)
+        trigger_data['function_id'] = functionId
         
-        create_trigger(access_token, groupId, appId, function_data, trigger_data)
+        response_PUT_update_trigger = requests.put(url, headers=headers, data=json.dumps(trigger_data))
+        check_response_status(response_PUT_update_trigger, 204)
         
+        
+def update_triggers(access_token: str, groupId : str, appId : str, service_id : str, service_name : str, triggers_config : dict, config_dir : str):
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {access_token}'
+    }
+    
+    # GET all triggers
+    # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminListTriggers
+    url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers'
+    
+    response_GET = requests.get(url, headers=headers)
+    success_GET = check_response_status(response_GET, 200)
+    
+    if success_GET:
+        response_body_GET = response_GET.json()
+        
+        j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=config_dir))
+        
+        for value in response_body_GET:
+            if 'name' in value and value['name'] in triggers_config:
+                triggerId = value['_id']
+                functionId = value['function_id']
+                trigger_name = value['name']
+                
+                function_data, trigger_data = get_function_and_trigger_data(triggers_config, trigger_name, service_id, service_name, j2_env, config_dir)
+                
+                update_trigger(access_token, groupId, appId, functionId, triggerId, function_data, trigger_data)
+    
         
 def main():
     parser = argparse.ArgumentParser()
@@ -374,11 +369,11 @@ def main():
     access_token = get_access_token(args.public_key, args.private_key)
     
     groupId = get_groupId(args.public_key, args.private_key, args.project_name)
-    appId = get_appId(access_token, groupId, args.cluster_name)
+    appId = get_appId(access_token, groupId)
     
     service_id, service_name = get_service_id_and_name(access_token, groupId, appId, args.cluster_name)
     
-    create_triggers(access_token, groupId, appId, service_id, service_name, triggers_config, config_dir)
+    update_triggers(access_token, groupId, appId, service_id, service_name, triggers_config, config_dir)
     
 
 if __name__ == '__main__':

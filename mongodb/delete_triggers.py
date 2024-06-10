@@ -153,28 +153,24 @@ def delete_triggers(access_token: str, groupId : str, appId : str, trigger_names
     if success_GET:
         response_body_GET = response_GET.json()
         
-        triggerId_functionId_tuples = []
-        
         for value in response_body_GET:
             if 'name' in value and value['name'] in trigger_names:
-                triggerId_functionId_tuples.append((value['_id'], value['function_id']))
-        
-        
-        # DELETE each trigger and its respective function
-        for triggerId, functionId in triggerId_functionId_tuples:
-            # DELETE trigger
-            # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminDeleteTrigger
-            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers/{triggerId}'
-            
-            response_DELETE_trigger = requests.delete(url, headers=headers)
-            check_response_status(response_DELETE_trigger, 200)
-            
-            # DELETE each function
-            # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/functions/operation/adminDeleteFunction
-            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/functions/{functionId}'
-            
-            response_DELETE_function = requests.delete(url, headers=headers)
-            check_response_status(response_DELETE_function, 200)
+                triggerId = value['_id']
+                functionId = value['function_id']
+                
+                # DELETE trigger
+                # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminDeleteTrigger
+                url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers/{triggerId}'
+                
+                response_DELETE_trigger = requests.delete(url, headers=headers)
+                check_response_status(response_DELETE_trigger, 200)
+                
+                # DELETE each function
+                # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/functions/operation/adminDeleteFunction
+                url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/functions/{functionId}'
+                
+                response_DELETE_function = requests.delete(url, headers=headers)
+                check_response_status(response_DELETE_function, 200)
     
     
 def main():

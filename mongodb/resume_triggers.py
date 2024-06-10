@@ -153,21 +153,17 @@ def resume_triggers(access_token: str, groupId : str, appId : str, trigger_names
     if success:
         response_body_GET = response_GET.json()
         
-        trigger_ids = []
-        
         for value in response_body_GET:
             if 'name' in value and value['name'] in trigger_names:
-                trigger_ids.append(value['_id'])
-        
-        
-        # RESUME each trigger (PUT)
-        # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminResumeTrigger
-        for triggerId in trigger_ids:
-            url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers/{triggerId}/resume'
-            
-            # 'disable_token' default value: False
-            response_PUT = requests.put(url, headers=headers)
-            check_response_status(response_PUT, 204)
+                triggerId = value['_id']
+                
+                # RESUME trigger (PUT)
+                # https://www.mongodb.com/docs/atlas/app-services/admin/api/v3/#tag/triggers/operation/adminResumeTrigger
+                url = f'https://services.cloud.mongodb.com/api/admin/v3.0/groups/{groupId}/apps/{appId}/triggers/{triggerId}/resume'
+                
+                # 'disable_token' default value: False
+                response_PUT = requests.put(url, headers=headers)
+                check_response_status(response_PUT, 204)
          
     
 def main():
