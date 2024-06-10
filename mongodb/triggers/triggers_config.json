@@ -6,7 +6,7 @@
             "name": "id_patient_trigger_function",
             "private": true,
             "source_file": {
-                "path": "seq_id_trigger.js.j2",
+                "path": "seq_id_trigger/trigger_code.js.j2",
                 "template": true,
                 "args": {
                     "field_name": "id_patient"
@@ -18,7 +18,7 @@
             "collection": "patients",
             "operation_types": ["INSERT", "UPDATE", "REPLACE"],
             "match_file": {
-                "path": "seq_id_trigger_match_exp.json.j2",
+                "path": "seq_id_trigger/trigger_match_exp.json.j2",
                 "template": true,
                 "args": {
                     "field_name": "id_patient"
@@ -36,7 +36,7 @@
             "name": "id_episode_trigger_function",
             "private": true,
             "source_file": {
-                "path": "seq_id_trigger.js.j2",
+                "path": "seq_id_trigger/trigger_code.js.j2",
                 "template": true,
                 "args": {
                     "field_name": "id_episode"
@@ -48,7 +48,7 @@
             "collection": "episodes",
             "operation_types": ["INSERT", "UPDATE", "REPLACE"],
             "match_file": {
-                "path": "seq_id_trigger_match_exp.json.j2",
+                "path": "seq_id_trigger/trigger_match_exp.json.j2",
                 "template": true,
                 "args": {
                     "field_name": "id_episode"
@@ -66,7 +66,7 @@
             "name": "emp_id_trigger_function",
             "private": true,
             "source_file": {
-                "path": "seq_id_trigger.js.j2",
+                "path": "seq_id_trigger/trigger_code.js.j2",
                 "template": true,
                 "args": {
                     "field_name": "emp_id"
@@ -78,7 +78,7 @@
             "collection": "staff",
             "operation_types": ["INSERT", "UPDATE", "REPLACE"],
             "match_file": {
-                "path": "seq_id_trigger_match_exp.json.j2",
+                "path": "seq_id_trigger/trigger_match_exp.json.j2",
                 "template": true,
                 "args": {
                     "field_name": "emp_id"
@@ -96,7 +96,7 @@
             "name": "medical_history_record_id_trigger_function",
             "private": true,
             "source_file": {
-                "path": "seq_id_list_trigger.js.j2",
+                "path": "seq_id_list_trigger/trigger_code.js.j2",
                 "template": true,
                 "args": {
                     "list_name": "medical_history",
@@ -109,7 +109,7 @@
             "collection": "patients",
             "operation_types": ["INSERT", "UPDATE", "REPLACE"],
             "match_file": {
-                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "path": "seq_id_list_trigger/trigger_match_exp.json.j2",
                 "template": true,
                 "args": {
                     "list_name": "medical_history",
@@ -127,7 +127,7 @@
             "name": "bills_id_bill_trigger_function",
             "private": true,
             "source_file": {
-                "path": "seq_id_list_trigger.js.j2",
+                "path": "seq_id_list_trigger/trigger_code.js.j2",
                 "template": true,
                 "args": {
                     "list_name": "bills",
@@ -140,7 +140,7 @@
             "collection": "episodes",
             "operation_types": ["INSERT", "UPDATE", "REPLACE"],
             "match_file": {
-                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "path": "seq_id_list_trigger/trigger_match_exp.json.j2",
                 "template": true,
                 "args": {
                     "list_name": "bills",
@@ -158,7 +158,7 @@
             "name": "prescriptions_id_prescription_trigger_function",
             "private": true,
             "source_file": {
-                "path": "seq_id_list_trigger.js.j2",
+                "path": "seq_id_list_trigger/trigger_code.js.j2",
                 "template": true,
                 "args": {
                     "list_name": "prescriptions",
@@ -171,7 +171,7 @@
             "collection": "episodes",
             "operation_types": ["INSERT", "UPDATE", "REPLACE"],
             "match_file": {
-                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "path": "seq_id_list_trigger/trigger_match_exp.json.j2",
                 "template": true,
                 "args": {
                     "list_name": "prescriptions",
@@ -189,7 +189,7 @@
             "name": "lab_screenings_lab_id_trigger_function",
             "private": true,
             "source_file": {
-                "path": "seq_id_list_trigger.js.j2",
+                "path": "seq_id_list_trigger/trigger_code.js.j2",
                 "template": true,
                 "args": {
                     "list_name": "lab_screenings",
@@ -202,7 +202,7 @@
             "collection": "episodes",
             "operation_types": ["INSERT", "UPDATE", "REPLACE"],
             "match_file": {
-                "path": "seq_id_list_trigger_match_exp.json.j2",
+                "path": "seq_id_list_trigger/trigger_match_exp.json.j2",
                 "template": true,
                 "args": {
                     "list_name": "lab_screenings",
@@ -220,7 +220,7 @@
             "name": "trg_generate_bill_function",
             "private": true,
             "source_file": {
-                "path": "trg_generate_bill.js.j2",
+                "path": "trg_generate_bill/trigger_code.js.j2",
                 "template": true
             }
         },
@@ -229,7 +229,7 @@
             "collection": "episodes",
             "operation_types": ["UPDATE", "REPLACE"],
             "match_file": {
-                "path": "trg_generate_bill_match_exp.json",
+                "path": "trg_generate_bill/trigger_match_exp.json",
                 "template": false
             },
             "full_document": true,
