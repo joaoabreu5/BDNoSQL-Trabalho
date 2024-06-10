@@ -1,0 +1,38 @@
+CALL apoc.trigger.install(
+    '{{ database }}',
+    'trg_generate_bill',
+    '
+    UNWIND keys($assignedNodeProperties) AS k
+    WITH k
+    WHERE k = \'discharge_date\'
+    UNWIND $assignedNodeProperties[k] AS map
+    WITH map.node AS h, map.old AS old, map.new AS new
+    WHERE "Hospitalization" IN LABELS(h) AND old IS NULL AND new IS NOT NULL
+    MATCH (e:Episode)-[:HAS_HOSPITALIZATION]->(h)
+    MATCH (h)-[:IN_ROOM]->(r:Room)
+    WITH e, h, COALESCE(r.room_cost, 0) AS v_room_cost
+    OPTIONAL MATCH (e)-[:HAS_LAB_SCREENING]->(ls:LabScreening)
+    WITH e, h, v_room_cost, COALESCE(SUM(ls.test_cost), 0) AS v_test_cost
+    OPTIONAL MATCH (e)-[:HAS_PRESCRIPTION]->(p:Prescription)-[:PRESCRIBES]->(m:Medicine)
+    WITH e, h, v_room_cost, v_test_cost, COALESCE(SUM(m.m_cost * p.dosage), 0) AS v_other_charges
+    WITH e, v_room_cost, v_test_cost, v_other_charges, (v_room_cost + v_test_cost + v_other_charges) AS v_total_cost
+    MATCH (c:Counter {type: \'Bill\'})
+    CALL apoc.cypher.run("
+        MATCH (c:Counter {type: \'Bill\'})
+        RETURN c.count + 1 AS count
+    ",{}) YIELD value
+     CREATE (b:Bill {
+        id_bill: value.count,
+        room_cost: v_room_cost,
+        test_cost: v_test_cost,
+        other_charges: v_other_charges,
+        total: v_total_cost,
+        id_episode: e.id_episode,
+        registered_at: datetime(),
+        payment_status: "PENDING"
+    })
+    MERGE (e)-[:HAS_BILL]->(b)
+    SET c.count = value.count
+',
+    {phase: 'afterAsync'}
+);

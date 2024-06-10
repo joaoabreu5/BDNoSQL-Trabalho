@@ -1,5 +1,3 @@
-from datetime import datetime
-import neo4j.exceptions
 import oracledb
 import neo4j
 import argparse
@@ -66,17 +64,20 @@ class Neo4jConnection():
         self.driver = neo4j.GraphDatabase.driver(uri=uri, auth=(self.user, self.password))
     
     def addSession(self):
-        session = self.driver.session()
-        session.run(f'CREATE DATABASE {self.database} IF NOT EXISTS WAIT')
-        session.close()
+        if self.database != 'system':
+            session = self.driver.session(database='system')
+            session.run(f'CREATE DATABASE {self.database} IF NOT EXISTS WAIT')
+            session.close()
+
         self.session = self.driver.session(database=self.database)
     
-    def executeQuery(self, query : str):
-        return self.session.run(query)
+    def executeQuery(self, query : str, parameters : dict = {}, **kwargs : any):
+        return self.session.run(query, parameters, **kwargs)
     
     def close(self):
         self.session.close()
         self.driver.close()
+
 
 def add_constraints(neo4j_conn : Neo4jConnection):
     # Ensure uniqueness constraint on id_patient
@@ -545,7 +546,7 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
         node_prescription = {
             'id_prescription': prescription[0],
             'prescription_date': prescription[1].isoformat(),
-            'dosage': prescription[2],
+            'dosage': int(prescription[2]),
             'id_medicine': int(prescription[3]),
             'id_episode': int(prescription[4]),
         }
@@ -554,7 +555,7 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
         prescription_query = f"""
             MERGE (p:Prescription {{id_prescription: {node_prescription['id_prescription']}}})
             ON CREATE SET p.prescription_date = datetime('{node_prescription['prescription_date']}'), 
-                          p.dosage = '{node_prescription['dosage']}'
+                          p.dosage = {node_prescription['dosage']}
             ON MATCH SET p.prescription_date = datetime('{node_prescription['prescription_date']}'), 
                          p.dosage = '{node_prescription['dosage']}'
             WITH p

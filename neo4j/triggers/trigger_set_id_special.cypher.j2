@@ -1,0 +1,19 @@
+CALL apoc.trigger.install(
+    '{{ database }}',
+    '{{ trigger_name }}',
+    '
+    UNWIND $createdNodes AS n
+    WITH n, head(apoc.node.labels(n)) AS label
+    WITH n, label, apoc.map.get(n, \'{{ id_field }}\', false) as idValue
+    MATCH (c:Counter {type: label})
+    WHERE label = "{{ label }}" AND NOT idValue 
+    CALL apoc.cypher.run("
+        MATCH (c:Counter {type: $label})
+        RETURN c.count + 1 AS count
+    ", {label: label}) YIELD value
+    CALL apoc.create.setProperty(n, \'{{ id_field }}\', value.count) YIELD node
+    SET n = node
+    SET c.count = value.count
+    ',
+    {phase: 'afterAsync'}
+)

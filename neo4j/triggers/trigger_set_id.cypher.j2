@@ -1,0 +1,20 @@
+CALL apoc.trigger.install(
+    '{{ database }}',
+    'dynamic_id_trigger',
+    '
+    UNWIND $createdNodes AS n
+    WITH n, head(apoc.node.labels(n)) AS label
+    WITH n, label, \'id_\' + toLower(label) AS dynamicProperty
+    WITH n, label, apoc.map.get(n, dynamicProperty, false) as idValue, dynamicProperty
+    MATCH (c:Counter {type: label})
+    WHERE label in ["Patient","Room","Department","Episode","Medicine","Prescription","Bill"] AND NOT idValue 
+    CALL apoc.cypher.run("
+        MATCH (c:Counter {type: $label})
+        RETURN c.count + 1 AS count
+    ", {label: label}) YIELD value
+    CALL apoc.create.setProperty(n, dynamicProperty, value.count) YIELD node
+    SET n = node
+    SET c.count = value.count
+    ',
+    {phase: 'afterAsync'}
+)
