@@ -28,7 +28,7 @@ CALL apoc.trigger.install(
         other_charges: v_other_charges,
         total: v_total_cost,
         id_episode: e.id_episode,
-        registered_at: datetime(),
+        registered_at: localdatetime(),
         payment_status: "PENDING"
     })
     MERGE (e)-[:HAS_BILL]->(b)

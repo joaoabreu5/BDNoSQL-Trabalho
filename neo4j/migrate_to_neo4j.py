@@ -105,7 +105,7 @@ def add_constraints(neo4j_conn : Neo4jConnection):
     # Ensure uniqueness constraint on appointment
     neo4j_conn.executeQuery("CREATE CONSTRAINT unique_appointment FOR (a:Appointment) REQUIRE (a.appointment_date, a.appointment_time,a.id_doctor) IS UNIQUE;")
     # Ensure uniqueness constraint on hospitalization
-    neo4j_conn.executeQuery("CREATE CONSTRAINT unique_hospitalization FOR (h:Hospitalization) REQUIRE (h.admission_date, h.discharge_date, h.id_episode) IS UNIQUE;")
+    neo4j_conn.executeQuery("CREATE CONSTRAINT unique_hospitalization FOR (h:Hospitalization) REQUIRE (h.admission_date, h.id_episode) IS UNIQUE;")
     # Ensure uniqueness constraint on episode
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (e:Episode) REQUIRE e.id_episode IS UNIQUE")
 
@@ -544,9 +544,7 @@ def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id
 
 def migrate_medicine(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection):
     # Query to retrieve all the medicines for an episode
-    medicines = oracle_conn.executeQuery(f""" 
-        SELECT * FROM medicine
-    """)
+    medicines = oracle_conn.executeQuery("SELECT * FROM medicine")
     
     for medicine in medicines:
         node_medicine = {
@@ -637,10 +635,8 @@ def migrate_appointment(neo4j_conn: Neo4jConnection, episode):
 
 
 def migrate_hospitalization(neo4j_conn, episode):
-    # Convert admission_date to ISO 8601 format
     admission_date = episode[7].date()
     
-    # Check if discharge_date is present and convert to ISO 8601 format if it is
     discharge_date = episode[8].date() if episode[8] is not None else None
 
     node_hospitalization = {
@@ -659,7 +655,7 @@ def migrate_hospitalization(neo4j_conn, episode):
 
     # Neo4j query to create the hospitalization node and relationship with episode
     hospitalization_query = f"""
-        MERGE (h:Hospitalization {{
+        CREATE (h:Hospitalization {{
             admission_date: {discharge_date_clause}
         }})
         WITH h
@@ -701,15 +697,12 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
             # Neo4j query to create or merge the episode node and relationship with patient
             episode_query = """
                 MERGE (e:Episode {id_episode: $id_episode})
-                ON CREATE SET e.patient_id = $patient_id
-                ON MATCH SET e.patient_id = $patient_id
                 WITH e
                 MATCH (p:Patient {id_patient: $patient_id})
                 MERGE (p)-[:HAS_EPISODE]->(e)
             """
             
             neo4j_conn.executeQuery(episode_query, node_episode)
-            
             
             # Migrate rooms
             migrate_rooms(neo4j_conn, oracle_conn)
@@ -739,9 +732,9 @@ def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Insert staff elements in Neo4j
     migrate_staff(oracle_conn, neo4j_conn)
     
-    
     # Insert episode elements in Neo4j
     migrate_episodes(oracle_conn, neo4j_conn)
+    
     # Add counters
     add_counters(neo4j_conn)
 

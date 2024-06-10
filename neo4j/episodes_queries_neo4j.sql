@@ -39,19 +39,19 @@ MATCH (r:Room {id_room: 1})
 RETURN r
 
 -- 12) Buscar Prescriptions por id_patient
-MATCH (e:Episode {patient_id: 1})-[:HAS_PRESCRIPTION]->(prescription:Prescription)
+MATCH (p:Patient {id_patient: 1})-[:HAS_EPISODE]->(e:Episode)-[:HAS_PRESCRIPTION]->(prescription:Prescription)
 RETURN prescription
 
 -- 13) Buscar Bills por id_patient
-MATCH (e:Episode {patient_id: 89})-[:HAS_BILL]->(bill:Bill)
+MATCH (p:Patient {id_patient: 89})-[:HAS_EPISODE]->(e:Episode)-[:HAS_BILL]->(bill:Bill)
 RETURN bill
 
 -- 14) Buscar LabScreening por id_patient
-MATCH (e:Episode {patient_id: 89})-[:HAS_LAB_SCREENING]->(labScreening:LabScreening)
+MATCH (p:Patient {id_patient: 89})-[:HAS_EPISODE]->(e:Episode)-[:HAS_LAB_SCREENING]->(labScreening:LabScreening)
 RETURN labScreening
 
 -- 15) Buscar Hospitalization por id_patient
-MATCH (e:Episode {patient_id: 89})-[:HAS_HOSPITALIZATION]->(hospitalization:Hospitalization)
+MATCH (p:Patient {id_patient: 89})-[:HAS_EPISODE]->(e:Episode)-[:HAS_HOSPITALIZATION]->(hospitalization:Hospitalization)
 RETURN hospitalization
 
 -- 16) Buscar room por idPatient
