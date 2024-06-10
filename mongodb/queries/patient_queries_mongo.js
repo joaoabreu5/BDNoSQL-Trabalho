@@ -1,6 +1,6 @@
 db = db.getSiblingDB('hospital');
 
-// PACIENT VISION
+// PATIENT VISION
 
 // 1) Buscar o Pacient para um dado ID
 function getPatientById(id) {
