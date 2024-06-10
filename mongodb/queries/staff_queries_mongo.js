@@ -1,3 +1,5 @@
+db = db.getSiblingDB('hospital');
+
 // STAFF VISION
 
 // 1) Buscar toda a Informação de um Staff

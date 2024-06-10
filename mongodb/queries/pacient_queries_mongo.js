@@ -1,3 +1,5 @@
+db = db.getSiblingDB('hospital');
+
 // PACIENT VISION
 
 // 1) Buscar o Pacient para um dado ID

@@ -1,3 +1,5 @@
+db = db.getSiblingDB('hospital');
+
 // EPISODES
 
 // 1) All info about an id_episode
