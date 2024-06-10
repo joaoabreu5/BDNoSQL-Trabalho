@@ -109,40 +109,48 @@ def add_constraints(neo4j_conn : Neo4jConnection):
     # Ensure uniqueness constraint on episode
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (e:Episode) REQUIRE e.id_episode IS UNIQUE")
 
-def get_counter_id(neo4j_conn, entity_type, id_field):
-    max_id = get_max_id(neo4j_conn, entity_type, id_field)
-    increment_counter_query = f"""
-        MERGE (c:Counter {{type: '{entity_type}'}})
-        ON CREATE SET c.count = {max_id}
+
+def get_counter_id(neo4j_conn : Neo4jConnection, entity_type : str):
+    max_id = get_max_id(neo4j_conn, entity_type)
+    
+    increment_counter_query = """
+        MERGE (c:Counter {type: $entity_type})
+        ON CREATE SET c.count = $max_id
         RETURN c.count AS new_id
     """
-    neo4j_conn.executeQuery(increment_counter_query)
+    
+    neo4j_conn.executeQuery(increment_counter_query, entity_type=entity_type, max_id=max_id)
 
-def get_max_id(neo4j_conn: Neo4jConnection, label: str, id_field: str) -> int:
-    result = neo4j_conn.executeQuery(f"""
+
+def get_max_id(neo4j_conn : Neo4jConnection, label : str) -> int:    
+    query = f"""
         MATCH (n:{label})
         RETURN COUNT(n) AS count_id
-    """)
-    result = result.single()
+    """
+    
+    result = neo4j_conn.executeQuery(query).single()
+    
     return result['count_id']
+
 
 def add_counters(neo4j_conn : Neo4jConnection):
     list = [
-            {"name": 'Patient', "id": 'id_patient'},
-            {"name": 'Insurance', "id": 'policy_number'},
-            {"name": 'Staff', "id": 'id_emp'},
-            {"name": 'Room', "id": 'id_room'},
-            {"name": 'Medicine',"id": 'id_medicine'},
-            {"name": 'LabScreening', "id": 'id_lab'},
-            {"name": 'Prescription', "id": 'id_prescription'},
-            {"name": 'Episode', "id": 'id_episode'},
-            {"name": 'Bill', "id": 'id_bill'},
-            {"name": 'MedicalHistory', "id": 'id_record'},
-            {"name": 'Department', "id": 'id_department'}
-          ]
+        {'name': 'Patient', "id": 'id_patient'},
+        {'name': 'Insurance', "id": 'policy_number'},
+        {'name': 'Staff', "id": 'id_emp'},
+        {'name': 'Room', "id": 'id_room'},
+        {'name': 'Medicine',"id": 'id_medicine'},
+        {'name': 'LabScreening', "id": 'id_lab'},
+        {'name': 'Prescription', "id": 'id_prescription'},
+        {'name': 'Episode', "id": 'id_episode'},
+        {'name': 'Bill', "id": 'id_bill'},
+        {'name': 'MedicalHistory', "id": 'id_record'},
+        {'name': 'Department', "id": 'id_department'}
+    ]
     
     for element in list:
-        get_counter_id(neo4j_conn, element["name"], element["id"])
+        get_counter_id(neo4j_conn, element['name'])
+
 
 def migrate_insurance(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Query to retrieve all the insurance information
@@ -161,25 +169,27 @@ def migrate_insurance(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnecti
             'optical': insurance[7] == 'Y',
         }
 
-        # Neo4j query to create or merge the insurance node
-        insurance_query = f"""
-            MERGE (i:Insurance {{policy_number: '{node_insurance['policy_number']}'}})
-            ON CREATE SET i.provider = '{node_insurance['provider']}',
-                          i.insurance_plan = '{node_insurance['insurance_plan']}',
-                          i.co_pay = {node_insurance['co_pay']},
-                          i.coverage = '{node_insurance['coverage']}',
-                          i.maternity = {node_insurance['maternity']},
-                          i.dental = {node_insurance['dental']},
-                          i.optical = {node_insurance['optical']}
-            ON MATCH SET i.provider = '{node_insurance['provider']}',
-                         i.insurance_plan = '{node_insurance['insurance_plan']}',
-                         i.co_pay = {node_insurance['co_pay']},
-                         i.coverage = '{node_insurance['coverage']}',
-                         i.maternity = {node_insurance['maternity']},
-                         i.dental = {node_insurance['dental']},
-                         i.optical = {node_insurance['optical']}
+        # Neo4j query to create or merge the insurance node    
+        insurance_query = """
+            MERGE (i:Insurance {policy_number: $policy_number})
+            ON CREATE SET i.provider = $provider,
+                          i.insurance_plan = $insurance_plan,
+                          i.co_pay = $co_pay,
+                          i.coverage = $coverage,
+                          i.maternity = $maternity,
+                          i.dental = $dental,
+                          i.optical = $optical
+            ON MATCH SET i.provider = $provider,
+                         i.insurance_plan = $insurance_plan,
+                         i.co_pay = $co_pay,
+                         i.coverage = $coverage,
+                         i.maternity = $maternity,
+                         i.dental = $dental,
+                         i.optical = $optical
         """
-        neo4j_conn.executeQuery(insurance_query)
+        
+        neo4j_conn.executeQuery(insurance_query, node_insurance)
+
 
 def migrate_patients(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     migrate_insurance(oracle_conn, neo4j_conn)
@@ -201,55 +211,61 @@ def migrate_patients(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnectio
             'email': patient[5],
             'gender': patient[6],
             'policy_number': patient[7],
-            'birthday': patient[8].isoformat()
+            'birthday': patient[8].date()
         }
 
         # Neo4j query to create the patient node and relationship with insurance
-        patient_query = f"""
-            MERGE (p:Patient {{id_patient: {node_patient['id_patient']}}})
+        patient_query = """
+            MERGE (p:Patient {id_patient: $id_patient})
             ON CREATE SET
-                p.patient_fname = '{node_patient['patient_fname']}', 
-                p.patient_lname = '{node_patient['patient_lname']}',
-                p.blood_type = '{node_patient['blood_type']}', 
-                p.phone = '{node_patient['phone']}',
-                p.email = '{node_patient['email']}',
-                p.gender = '{node_patient['gender']}',
-                p.birthday = datetime('{node_patient['birthday']}')
+                p.patient_fname = $patient_fname, 
+                p.patient_lname = $patient_lname,
+                p.blood_type = $blood_type, 
+                p.phone = $phone,
+                p.email = $email,
+                p.gender = $gender,
+                p.birthday = $birthday
             ON MATCH SET
-                p.patient_fname = '{node_patient['patient_fname']}', 
-                p.patient_lname = '{node_patient['patient_lname']}',
-                p.blood_type = '{node_patient['blood_type']}', 
-                p.phone = '{node_patient['phone']}',
-                p.email = '{node_patient['email']}',
-                p.gender = '{node_patient['gender']}',
-                p.birthday = datetime('{node_patient['birthday']}')
-            MERGE (i:Insurance {{policy_number: '{node_patient['policy_number']}'}})
+                p.patient_fname = $patient_fname, 
+                p.patient_lname = $patient_lname,
+                p.blood_type = $blood_type, 
+                p.phone = $phone,
+                p.email = $email,
+                p.gender = $gender,
+                p.birthday = $birthday
+            MERGE (i:Insurance {policy_number: $policy_number})
             MERGE (p)-[:HAS_INSURANCE]->(i)
         """
-        neo4j_conn.executeQuery(patient_query)
+        
+        neo4j_conn.executeQuery(patient_query, node_patient)
 
         migrate_emergency_contacts(oracle_conn, neo4j_conn, node_patient['id_patient'])
         migrate_medical_history(oracle_conn, neo4j_conn, node_patient['id_patient'])
+
 
 def migrate_emergency_contacts(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection, patient_id):
     # Query to retrieve all the emergency contacts for a patient
     emergency_contacts_sql_query = f'SELECT * FROM emergency_contact WHERE idpatient = {patient_id}'
     emergency_contacts = oracle_conn.executeQuery(emergency_contacts_sql_query)
+    
     for contact in emergency_contacts:
         node_contact = {
             'contact_name': contact[0],
             'phone': contact[1],
             'relation': contact[2],
         }
+        
         # Neo4j query to create the emergency contact node and relationship with patient
-        emergency_contacts_query = f"""
-            MATCH (p:Patient {{id_patient: {patient_id}}})
-            MERGE (c:EmergencyContact {{contact_name: '{node_contact['contact_name']}',
-                phone: '{node_contact['phone']}',
-                relation: '{node_contact['relation']}'}})
+        emergency_contacts_query = """
+            MATCH (p:Patient {id_patient: $patient_id})
+            MERGE (c:EmergencyContact {contact_name: $contact_name,
+                phone: $phone,
+                relation: $relation})
             MERGE (p)-[:HAS_EMERGENCY_CONTACT]->(c)
-            """
-        neo4j_conn.executeQuery(emergency_contacts_query)
+        """
+        
+        neo4j_conn.executeQuery(emergency_contacts_query, node_contact, patient_id = patient_id)
+
 
 def migrate_medical_history(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection, patient_id):
     # Query to retrieve all the medical histories for a patient
@@ -260,18 +276,21 @@ def migrate_medical_history(oracle_conn : OracleConnection, neo4j_conn : Neo4jCo
         node_history = {
             'id_record': int(history[0]),
             'condition': history[1],
-            'record_date': history[2].isoformat()
+            'record_date': history[2].date()
 
         }
+        
         # Neo4j query to create the medical history node and relationship with patient
-        medical_history_query = f"""
-            MATCH (p:Patient {{id_patient: {patient_id}}})
-            MERGE (m:MedicalHistory {{id_record: {node_history['id_record']}}})
-            ON CREATE SET m.condition = '{node_history['condition']}',
-                          m.record_date = datetime('{node_history['record_date']}')
+        medical_history_query = """
+            MATCH (p:Patient {id_patient: $patient_id})
+            MERGE (m:MedicalHistory {id_record: $id_record})
+            ON CREATE SET m.condition = $condition,
+                          m.record_date = $record_date
             MERGE (p)-[:HAS_MEDICAL_HISTORY]->(m)
         """
-        neo4j_conn.executeQuery(medical_history_query)
+        
+        neo4j_conn.executeQuery(medical_history_query, node_history, patient_id=patient_id)
+
 
 def migrate_department(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection):
     # Query to retrieve all the departments
@@ -286,54 +305,58 @@ def migrate_department(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnectio
         }
 
         # Neo4j query to create or merge the department node
-        department_query = f"""
-            MERGE (dep:Department {{id_department: {node_department['id_department']}}})
-            ON CREATE SET dep.department_head = '{node_department['department_head']}', dep.department_name = '{node_department['department_name']}'
-            ON MATCH SET dep.department_head = '{node_department['department_head']}', dep.department_name = '{node_department['department_name']}'
+        department_query = """
+            MERGE (dep:Department {id_department: $id_department})
+            ON CREATE SET dep.department_head = $department_head, dep.department_name = $department_name
+            ON MATCH SET dep.department_head = $department_head, dep.department_name = $department_name
         """
-        neo4j_conn.executeQuery(department_query)
+        
+        neo4j_conn.executeQuery(department_query, node_department)
 
-def create_staff_node_and_relationship(node, department_id):
+
+def create_staff_node_and_relationship(node):
     properties_str = ", ".join([
-        f"n.id_emp = {node['id_emp']}",
-        f"n.emp_fname = '{node['emp_fname']}'",
-        f"n.emp_lname = '{node['emp_lname']}'",
-        f"n.date_joining = datetime('{node['date_joining'].isoformat()}')",
-        f"n.email = '{node['email']}'",
-        f"n.address = '{node['address']}'",
-        f"n.ssn = '{node['ssn']}'",
-        f"n.is_active_status = {str(node['is_active_status']).lower()}",
-        f"n.role = '{node['role']}'"
+        f"n.id_emp = $id_emp",
+        f"n.emp_fname = $emp_fname",
+        f"n.emp_lname = $emp_lname",
+        f"n.date_joining = $date_joining",
+        f"n.email = $email",
+        f"n.address = $address",
+        f"n.ssn = $ssn",
+        f"n.is_active_status = $is_active_status",
+        f"n.role = $role"
     ])
 
     # Add qualification if exists
     if 'qualification' in node:
-        properties_str += f", n.qualification = '{node['qualification']}'"
+        properties_str += f", n.qualification = $qualification"
     
     # Add date_separation if exists
     if node.get('date_separation'):
-        properties_str += f", n.date_separation = datetime('{(node['date_separation'].isoformat())}')"
+        properties_str += f", n.date_separation = $date_separation"
+        
         # Neo4j query to create or merge the staff node and relationship with department, case in which the staff has left
         query = f"""
-            MERGE (n:Staff {{id_emp: {node['id_emp']}}})
+            MERGE (n:Staff {{id_emp: $id_emp}})
             ON CREATE SET {properties_str}
             ON MATCH SET {properties_str}
             WITH n
-            MATCH (dep:Department {{id_department: {department_id}}})
+            MATCH (dep:Department {{id_department: $department_id}})
             MERGE (n)-[:LEFT]->(dep)
         """
     else:
         # Neo4j query to create or merge the staff node and relationship with department, case in which the staff is still working
         query = f"""
-            MERGE (n:Staff {{id_emp: {node['id_emp']}}})
+            MERGE (n:Staff {{id_emp: $id_emp}})
             ON CREATE SET {properties_str}
             ON MATCH SET {properties_str}
             WITH n
-            MATCH (dep:Department {{id_department: {department_id}}})
+            MATCH (dep:Department {{id_department: $department_id}})
             MERGE (n)-[:WORKS_IN]->(dep)
         """
 
     return query
+
 
 def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     migrate_department(oracle_conn, neo4j_conn)
@@ -350,8 +373,8 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'id_emp': int(doctor[0]),
             'emp_fname': doctor[1],
             'emp_lname': doctor[2],
-            'date_joining': doctor[3],
-            'date_separation': doctor[4],
+            'date_joining': doctor[3].date(),
+            'date_separation': doctor[4].date() if doctor[4] else None,
             'email': doctor[5],
             'address': doctor[6],
             'ssn': int(doctor[7]),
@@ -360,10 +383,12 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'role': 'DOCTOR',
             'qualification': doctor[11]
         }
+        
         # Create doctor node
-        doctor_query = create_staff_node_and_relationship(node_doctor, node_doctor['department_id'])
-        neo4j_conn.executeQuery(doctor_query)
-
+        doctor_query = create_staff_node_and_relationship(node_doctor)
+        neo4j_conn.executeQuery(doctor_query, node_doctor)
+    
+    
     # Query to retrieve all the nurses
     nurses_sql_query = """
         SELECT * FROM staff
@@ -376,19 +401,21 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'id_emp': int(nurse[0]),
             'emp_fname': nurse[1],
             'emp_lname': nurse[2],
-            'date_joining': nurse[3],
-            'date_separation': nurse[4],
+            'date_joining': nurse[3].date(),
+            'date_separation': nurse[4].date() if nurse[4] else None,
             'email': nurse[5],
             'address': nurse[6],
             'ssn': int(nurse[7]),
             'is_active_status': nurse[9] == 'Y',
             'department_id': int(nurse[8]),
-            'role': 'NURSE',
+            'role': 'NURSE'
         }
+        
         # Create nurse node
-        nurse_query = create_staff_node_and_relationship(node_nurse, node_nurse['department_id'])
-        neo4j_conn.executeQuery(nurse_query)
-
+        nurse_query = create_staff_node_and_relationship(node_nurse)
+        neo4j_conn.executeQuery(nurse_query, node_nurse)
+    
+    
     # Query to retrieve all the technicians
     technicians_sql_query = """
         SELECT * FROM staff
@@ -401,8 +428,8 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'id_emp': int(technician[0]),
             'emp_fname': technician[1],
             'emp_lname': technician[2],
-            'date_joining': technician[3],
-            'date_separation': technician[4],
+            'date_joining': technician[3].date(),
+            'date_separation': technician[4].date() if technician[4] else None,
             'email': technician[5],
             'address': technician[6],
             'ssn': int(technician[7]),
@@ -410,16 +437,18 @@ def migrate_staff(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
             'department_id': int(technician[8]),
             'role': 'TECHNICIAN',
         }
+        
         # Create technician node
-        technician_query = create_staff_node_and_relationship(node_technician, node_technician['department_id'])
-        neo4j_conn.executeQuery(technician_query)
+        technician_query = create_staff_node_and_relationship(node_technician)
+        neo4j_conn.executeQuery(technician_query, node_technician)
+    
     
 def get_patients_ids(neo4j_conn: Neo4jConnection) -> list:
     result = neo4j_conn.executeQuery("MATCH (p:Patient) RETURN p.id_patient AS id_patient")
     return [record['id_patient'] for record in result]
 
-def migrate_rooms(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection):
 
+def migrate_rooms(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection):
     # Query to retrieve all the rooms
     rooms = oracle_conn.executeQuery("SELECT * FROM room")
 
@@ -431,50 +460,54 @@ def migrate_rooms(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection):
         }
 
         # Neo4j query to create or merge the room node
-        room_query = f"""
-            MERGE (r:Room {{id_room: {node_room['id_room']}}})
-            ON CREATE SET r.room_type = '{node_room['room_type']}', r.room_cost = {node_room['room_cost']}
-            ON MATCH SET r.room_type = '{node_room['room_type']}', r.room_cost = {node_room['room_cost']}
+        room_query = """
+            MERGE (r:Room {id_room: $id_room})
+            ON CREATE SET r.room_type = $room_type, r.room_cost = $room_cost
+            ON MATCH SET r.room_type = $room_type, r.room_cost = $room_cost
         """
-        neo4j_conn.executeQuery(room_query)
+        
+        neo4j_conn.executeQuery(room_query, node_room)
+
 
 def migrate_lab_screenings(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id_episode):
     lab_screenings = oracle_conn.executeQuery(f"""
         SELECT * FROM lab_screening WHERE lab_screening.episode_idepisode = {id_episode}
     """)
+    
     for lab_screening in lab_screenings:
         node_lab_screening = {
             'id_lab': int(lab_screening[0]),
             'test_cost': float(lab_screening[1]),
-            'test_date': lab_screening[2].isoformat(),
+            'test_date': lab_screening[2].date(),
             'id_technician': int(lab_screening[3]),
             'id_episode': int(lab_screening[4])
         }
 
         # Neo4j query to create or merge the lab screening node and relationship with episode and technician
-        lab_screening_query = f"""
-            MERGE (l:LabScreening {{id_lab: {node_lab_screening['id_lab']}}})
-            ON CREATE SET l.test_cost = {node_lab_screening['test_cost']},
-                            l.test_date = datetime('{node_lab_screening['test_date']}')
-            ON MATCH SET l.test_cost = {node_lab_screening['test_cost']},
-                            l.test_date = datetime('{node_lab_screening['test_date']}')
+        lab_screening_query = """
+            MERGE (l:LabScreening {id_lab: $id_lab})
+            ON CREATE SET l.test_cost = $test_cost,
+                          l.test_date = $test_date
+            ON MATCH SET l.test_cost = $test_cost,
+                         l.test_date = $test_date
             WITH l
-            MATCH (e:Episode {{id_episode: {node_lab_screening['id_episode']}}})
+            MATCH (e:Episode {id_episode: $id_episode})
             MERGE (e)-[:HAS_LAB_SCREENING]->(l)
             WITH l
-            MATCH (s:Staff {{id_emp: {node_lab_screening['id_technician']}}})
+            MATCH (s:Staff {id_emp: $id_technician})
             MERGE (l)-[:PERFORMED_BY]->(s)
         """
-        neo4j_conn.executeQuery(lab_screening_query)
+        
+        neo4j_conn.executeQuery(lab_screening_query, node_lab_screening)
+
 
 def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id_episode):
-
     # Query to retrieve all the bills for an episode
     bills = oracle_conn.executeQuery(f""" 
         SELECT * FROM bill WHERE bill.idepisode = {id_episode}
     """)
+    
     for bill in bills:
-        
         node_bill = {
             'id_bill': int(bill[0]),
             'room_cost': float(bill[1]),
@@ -482,37 +515,39 @@ def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id
             'other_charges': float(bill[3]),
             'total': float(bill[4]),
             'id_episode': int(bill[5]),
-            'registered_at': bill[6].isoformat(), 
+            'registered_at': bill[6], 
             'payment_status': bill[7]
         }
         
-
         # Neo4j query to create or merge the bill node and relationship with episode
-        bill_query = f"""
-            MERGE (b:Bill {{id_bill: {node_bill['id_bill']}}})
-            ON CREATE SET b.room_cost = {node_bill['room_cost']}, 
-                          b.test_cost = {node_bill['test_cost']}, 
-                          b.other_charges = {node_bill['other_charges']}, 
-                          b.total = {node_bill['total']}, 
-                          b.registered_at = datetime('{node_bill['registered_at']}'), 
-                          b.payment_status = '{node_bill['payment_status']}'
-            ON MATCH SET b.room_cost = {node_bill['room_cost']}, 
-                         b.test_cost = {node_bill['test_cost']}, 
-                         b.other_charges = {node_bill['other_charges']}, 
-                         b.total = {node_bill['total']}, 
-                         b.registered_at = datetime('{node_bill['registered_at']}'), 
-                         b.payment_status = '{node_bill['payment_status']}'
+        bill_query = """
+            MERGE (b:Bill {id_bill: $id_bill})
+            ON CREATE SET b.room_cost = $room_cost, 
+                          b.test_cost = $test_cost, 
+                          b.other_charges = $other_charges, 
+                          b.total = $total, 
+                          b.registered_at = $registered_at, 
+                          b.payment_status = $payment_status
+            ON MATCH SET b.room_cost = $room_cost, 
+                         b.test_cost = $test_cost, 
+                         b.other_charges = $other_charges, 
+                         b.total = $total, 
+                         b.registered_at = $registered_at, 
+                         b.payment_status = $payment_status
             WITH b
-            MATCH (e:Episode {{id_episode: {node_bill['id_episode']}}})
+            MATCH (e:Episode {id_episode: $id_episode})
             MERGE (e)-[:HAS_BILL]->(b)
         """
-        neo4j_conn.executeQuery(bill_query)
+        
+        neo4j_conn.executeQuery(bill_query, node_bill)
+
 
 def migrate_medicine(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection):
     # Query to retrieve all the medicines for an episode
     medicines = oracle_conn.executeQuery(f""" 
         SELECT * FROM medicine
     """)
+    
     for medicine in medicines:
         node_medicine = {
             'id_medicine': int(medicine[0]),
@@ -522,19 +557,20 @@ def migrate_medicine(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection)
         }
 
         # Neo4j query to create or merge the medicine node and relationship with episode
-        medicine_query = f"""
-            MERGE (m:Medicine {{id_medicine: {node_medicine['id_medicine']}}})
-            ON CREATE SET m.m_name = '{node_medicine['m_name']}', 
-                          m.m_quantity = {node_medicine['m_quantity']}, 
-                          m.m_cost = {node_medicine['m_cost']}
-            ON MATCH SET m.m_name = '{node_medicine['m_name']}', 
-                         m.m_quantity = {node_medicine['m_quantity']}, 
-                         m.m_cost = {node_medicine['m_cost']}
+        medicine_query = """
+            MERGE (m:Medicine {id_medicine: $id_medicine})
+            ON CREATE SET m.m_name = $m_name, 
+                          m.m_quantity = $m_quantity, 
+                          m.m_cost = $m_cost
+            ON MATCH SET m.m_name = $m_name, 
+                         m.m_quantity = $m_quantity, 
+                         m.m_cost = $m_cost
         """
-        neo4j_conn.executeQuery(medicine_query)
+        
+        neo4j_conn.executeQuery(medicine_query, node_medicine)
+
 
 def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id_episode):
-    
     migrate_medicine(neo4j_conn, oracle_conn)
     
     # Query to retrieve all the prescriptions for an episode
@@ -542,65 +578,70 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
         SELECT * FROM prescription 
         WHERE prescription.idepisode = {id_episode}
     """)
+    
     for prescription in prescriptions:
         node_prescription = {
             'id_prescription': prescription[0],
-            'prescription_date': prescription[1].isoformat(),
+            'prescription_date': prescription[1].date(),
             'dosage': int(prescription[2]),
             'id_medicine': int(prescription[3]),
             'id_episode': int(prescription[4]),
         }
 
         # Neo4j query to create or merge the prescription node and relationships with episode and the medicine
-        prescription_query = f"""
-            MERGE (p:Prescription {{id_prescription: {node_prescription['id_prescription']}}})
-            ON CREATE SET p.prescription_date = datetime('{node_prescription['prescription_date']}'), 
-                          p.dosage = {node_prescription['dosage']}
-            ON MATCH SET p.prescription_date = datetime('{node_prescription['prescription_date']}'), 
-                         p.dosage = '{node_prescription['dosage']}'
+        prescription_query = """
+            MERGE (p:Prescription {id_prescription: $id_prescription})
+            ON CREATE SET p.prescription_date = $prescription_date, 
+                          p.dosage = $dosage
+            ON MATCH SET p.prescription_date = $prescription_date, 
+                         p.dosage = $dosage
             WITH p
-            MATCH (e:Episode {{id_episode: {node_prescription['id_episode']}}})
+            MATCH (e:Episode {id_episode: $id_episode})
             MERGE (e)-[:HAS_PRESCRIPTION]->(p)
             WITH p
-            MATCH (m:Medicine {{id_medicine: {node_prescription['id_medicine']}}})
+            MATCH (m:Medicine {id_medicine: $id_medicine})
             MERGE (p)-[:PRESCRIBES]->(m)
         """
-        neo4j_conn.executeQuery(prescription_query)
+        
+        neo4j_conn.executeQuery(prescription_query, node_prescription)
+
 
 def migrate_appointment(neo4j_conn: Neo4jConnection, episode):
     node_appointment = {
-        'schedule_on': episode[2].isoformat(),
-        'appointment_date': episode[3].isoformat(),
+        'schedule_on': episode[2].date(),
+        'appointment_date': episode[3].date(),
         'appointment_time': episode[4],
         'id_doctor': int(episode[5]),
         'id_episode': int(episode[6])
     }
 
     # Neo4j query to create or merge the appointment node and relationship with episode and doctor
-    appointment_query = f"""
-        MERGE (a:Appointment {{
-            appointment_date: datetime('{node_appointment['appointment_date']}'), 
-            appointment_time: '{node_appointment['appointment_time']}'
-        }})
-        ON CREATE SET a.schedule_on = datetime('{node_appointment['schedule_on']}'), 
-                      a.id_doctor = {node_appointment['id_doctor']}
-        ON MATCH SET a.schedule_on = datetime('{node_appointment['schedule_on']}'), 
-                     a.id_doctor = {node_appointment['id_doctor']}
+    appointment_query = """
+        MERGE (a:Appointment {
+            appointment_date: $appointment_date, 
+            appointment_time: $appointment_time
+        })
+        ON CREATE SET a.schedule_on = $schedule_on, 
+                      a.id_doctor = $id_doctor
+        ON MATCH SET a.schedule_on = $schedule_on, 
+                     a.id_doctor = $id_doctor
         WITH a
-        MATCH (e:Episode {{id_episode: {node_appointment['id_episode']}}})
+        MATCH (e:Episode {id_episode: $id_episode})
         MERGE (e)-[:HAS_APPOINTMENT]->(a)
         WITH a
-        MATCH (s:Staff {{id_emp: {node_appointment['id_doctor']}}})
+        MATCH (s:Staff {id_emp: $id_doctor})
         MERGE (a)-[:CONDUCTED_BY]->(s)
     """
-    neo4j_conn.executeQuery(appointment_query)
+    
+    neo4j_conn.executeQuery(appointment_query, node_appointment)
+
 
 def migrate_hospitalization(neo4j_conn, episode):
     # Convert admission_date to ISO 8601 format
-    admission_date = episode[7].isoformat()
+    admission_date = episode[7].date()
     
     # Check if discharge_date is present and convert to ISO 8601 format if it is
-    discharge_date = episode[8].isoformat() if episode[8] is not None else None
+    discharge_date = episode[8].date() if episode[8] is not None else None
 
     node_hospitalization = {
         'admission_date': admission_date,
@@ -611,27 +652,31 @@ def migrate_hospitalization(neo4j_conn, episode):
     }
 
     # Build the dynamic part of the query for discharge_date
-    discharge_date_clause = f", discharge_date: datetime('{node_hospitalization['discharge_date']}')" if node_hospitalization['discharge_date'] else ""
+    discharge_date_clause = "$admission_date"
+    
+    if node_hospitalization['discharge_date']:
+        discharge_date_clause += ", discharge_date: $discharge_date"
 
     # Neo4j query to create the hospitalization node and relationship with episode
     hospitalization_query = f"""
         MERGE (h:Hospitalization {{
-            admission_date: datetime('{node_hospitalization['admission_date']}'){discharge_date_clause}
+            admission_date: {discharge_date_clause}
         }})
         WITH h
-        MATCH (e:Episode {{id_episode: {node_hospitalization['id_episode']}}})
+        MATCH (e:Episode {{id_episode: $id_episode}})
         MERGE (e)-[:HAS_HOSPITALIZATION]->(h)
         WITH h
-        MATCH (s:Staff {{id_emp: {node_hospitalization['responsible_nurse']}}})
+        MATCH (s:Staff {{id_emp: $responsible_nurse}})
         MERGE (h)-[:RESPONSIBLE_NURSE]->(s)
         WITH h
-        MATCH (r:Room {{id_room: {node_hospitalization['id_room']}}})
+        MATCH (r:Room {{id_room: $id_room}})
         MERGE (h)-[:IN_ROOM]->(r)
     """
-    neo4j_conn.executeQuery(hospitalization_query)
+    
+    neo4j_conn.executeQuery(hospitalization_query, node_hospitalization)
+
 
 def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection):
-
     # Get all the patients from Neo4j
     patients = get_patients_ids(neo4j_conn)
     
@@ -643,26 +688,28 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
             LEFT JOIN hospitalization ON episode.idepisode = hospitalization.idepisode 
             WHERE patient_idpatient = {patient}
         """
+        
         # Retrieve episodes for the patient from Oracle
         episodes = oracle_conn.executeQuery(episodes_sql_query)
 
         for episode in episodes:
-            
             node_episode = {
                 'id_episode': int(episode[0]),
                 'patient_id': int(episode[1]),
             }
             
             # Neo4j query to create or merge the episode node and relationship with patient
-            episode_query = f"""
-                MERGE (e:Episode {{id_episode: {node_episode['id_episode']}}})
-                ON CREATE SET e.patient_id = {node_episode['patient_id']}
-                ON MATCH SET e.patient_id = {node_episode['patient_id']}
+            episode_query = """
+                MERGE (e:Episode {id_episode: $id_episode})
+                ON CREATE SET e.patient_id = $patient_id
+                ON MATCH SET e.patient_id = $patient_id
                 WITH e
-                MATCH (p:Patient {{id_patient: {node_episode['patient_id']}}})
+                MATCH (p:Patient {id_patient: $patient_id})
                 MERGE (p)-[:HAS_EPISODE]->(e)
             """
-            neo4j_conn.executeQuery(episode_query)
+            
+            neo4j_conn.executeQuery(episode_query, node_episode)
+            
             
             # Migrate rooms
             migrate_rooms(neo4j_conn, oracle_conn)
@@ -681,17 +728,18 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
                 # Migrate episode hospitalization
                 migrate_hospitalization(neo4j_conn, episode)
 
-query="""
-    CREATE (i:Insurance {policy_number: '123456', provider: 'Blue Cross', insurance_plan: 'Gold', co_pay: 20.0, coverage: 'Full', maternity: true, dental: true, optical: true})
-"""
 
 def migrate(oracle_conn : OracleConnection, neo4j_conn : Neo4jConnection):
     # Add constraints
     add_constraints(neo4j_conn)
+    
     # Inserção de pacientes em Neo4j
     migrate_patients(oracle_conn, neo4j_conn)
+    
     # Insert staff elements in Neo4j
     migrate_staff(oracle_conn, neo4j_conn)
+    
+    
     # Insert episode elements in Neo4j
     migrate_episodes(oracle_conn, neo4j_conn)
     # Add counters
