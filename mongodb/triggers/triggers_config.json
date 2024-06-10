@@ -100,7 +100,7 @@
                 "template": true,
                 "args": {
                     "list_name": "medical_history",
-                    "ob_field_name": "record_id"
+                    "obj_field_name": "record_id"
                 }
             }
         },
@@ -131,7 +131,7 @@
                 "template": true,
                 "args": {
                     "list_name": "bills",
-                    "ob_field_name": "id_bill"
+                    "obj_field_name": "id_bill"
                 }
             }
         },
@@ -162,7 +162,7 @@
                 "template": true,
                 "args": {
                     "list_name": "prescriptions",
-                    "ob_field_name": "id_prescription"
+                    "obj_field_name": "id_prescription"
                 }
             }
         },
@@ -193,7 +193,7 @@
                 "template": true,
                 "args": {
                     "list_name": "lab_screenings",
-                    "ob_field_name": "lab_id"
+                    "obj_field_name": "lab_id"
                 }
             }
         },
