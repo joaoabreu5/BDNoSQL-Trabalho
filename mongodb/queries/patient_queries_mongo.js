@@ -7,7 +7,7 @@ function getPatientById(id) {
   return db.patients.findOne({ id_patient: id });
 }
 
-console.log('\n\nAll info about patient id 1:');
+console.log('All info about patient id 1:');
 console.log(getPatientById(1));
 
 

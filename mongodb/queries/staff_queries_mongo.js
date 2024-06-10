@@ -9,7 +9,7 @@ function getStaffInfo(emp_id) {
   });
 }
 
-console.log('\n\nAll info about staff id 19:');
+console.log('All info about staff id 19:');
 console.log(getStaffInfo(19));
 
 

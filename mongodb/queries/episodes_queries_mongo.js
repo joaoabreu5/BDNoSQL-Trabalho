@@ -10,7 +10,7 @@ function getAllInfoByEpisodeId(episodeId) {
 }
 
 
-console.log('\n\nAll info about id_episode 89:');
+console.log('All info about id_episode 89:');
 console.log(getAllInfoByEpisodeId(89));
 
 function getAllInfoByEpisodeId_withNames(episodeId) {
