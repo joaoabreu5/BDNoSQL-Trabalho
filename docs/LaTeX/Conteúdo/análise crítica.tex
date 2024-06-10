@@ -1,0 +1,32 @@
+\chapter{Análise Crítica}
+\paragraph{}
+
+% Ao longo do projeto, desenvolvemos a migração de dados de um sistema de gestão hospitalar baseado em \textbf{Oracle SQL} para sistemas NoSQL, especificamente \textbf{MongoDB} e \textbf{Neo4j}. Esta migração foi crucial para atender às crescentes demandas e complexidades dos dados modernos, proporcionando maior flexibilidade e escalabilidade.
+
+%Ao nível da exploração, esta foi levada ao detalhe. Ao longo de todo o projeto, para cada uma das bases de dados — relacional, orientada a documentos ou orientada a grafos — desenvolvemos todas as queries, funções e outras operações de forma a serem utilizadas e aplicadas no contexto real de um centros hospitalares.
+
+%Esforçámo-nos por garantir que estas ferramentas pudessem ser usadas eficazmente tanto pelos pacientes, através da utilização de perfis personalizados, como pelo staff hospitalar para a gestão de informações e operações diárias. Adicionalmente, desenvolvemos funcionalidades específicas para a gestão de episódios médicos, tanto os que estão a decorrer como os já passados, assegurando uma administração eficiente e integrada dos dados hospitalares.
+
+%Este nível de detalhe na exploração permitiu-nos criar um sistema robusto e versátil, capaz de atender às necessidades de diversos utilizadores num ambiente hospitalar real.
+
+%Durante o desenvolvimento, enfrentámos diversos desafios, como a manutenção da integridade dos dados e a adaptação de triggers. Para resolver esses problemas, utilizámos a biblioteca APOC em Neo4j para a criação de triggers e definimos constraints para garantir a unicidade dos dados.
+
+%- Falar da extensão exploração realizada em cada um das DB
+
+%- Falar dos Triggers em mais detalhe
+
+%- Falar do Counter
+
+%- Falar das Datas?!
+
+Ao longo deste projeto, realizámos a migração de dados de um sistema de gestão hospitalar baseado em Oracle SQL para sistemas NoSQL, nomeadamente MongoDB e Neo4j. Esta migração revelou-se essencial para responder às crescentes exigências e complexidades dos dados modernos, oferecendo maior flexibilidade e escalabilidade.
+
+A exploração das bases de dados foi conduzida de forma meticulosa. Para cada uma das bases de dados — relacional, orientada a documentos ou orientada a grafos — desenvolvemos consultas, funções e outras operações de modo a serem aplicáveis no contexto real de um hospital. Em MongoDB, implementámos várias funções e expressões para obter informações detalhadas e gerais. Em Neo4j, as consultas foram otimizadas para obter dados complexos de forma eficiente.
+
+Procurámos garantir que estas ferramentas pudessem ser usadas de forma eficaz tanto pelos pacientes, através de perfis personalizados, como pelo pessoal hospitalar para a gestão de informações e operações diárias. Adicionalmente, desenvolvemos funcionalidades específicas para a gestão de episódios médicos, tanto os que estão a decorrer como os já finalizados, assegurando uma administração eficiente e integrada dos dados hospitalares.
+
+Este nível de detalhe na exploração permitiu-nos criar um sistema robusto e versátil, capaz de atender às necessidades de diversos utilizadores num ambiente hospitalar real.
+
+Durante o desenvolvimento, enfrentámos vários desafios, como a manutenção da integridade dos dados e a adaptação de \textit{triggers}. Os \textit{triggers} desempenharam um papel crucial na manutenção da integridade dos dados e na automatização de processos. A criação de \textit{triggers} em Neo4j, com o auxílio da biblioteca APOC, e em MongoDB, recorrendo à ferramenta Atlas, foi fundamental para a geração automática de identificadores únicos e a preservação da consistência dos dados.
+
+Introduzimos também um nó auxiliar (\textit{Counter}) e uma coleção auxiliar (\textit{counters}) cuja principal função é armazenar o número máximo dos identificadores utilizados até ao momento. Estas duas abordagens facilitaram a geração de novos identificadores únicos para futuros elementos das nossas bases de dados. A gestão de datas foi abordada com cuidado para garantir a precisão e a consistência dos registos temporais nos diferentes sistemas de bases de dados.

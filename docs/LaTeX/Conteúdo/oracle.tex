@@ -1,0 +1,720 @@
+\chapter{Base de dados relacional - Oracle SQL}
+\paragraph{}
+A linguagem \textbf{SQL} (Structured Query Language) é um elemento central na gestão de sistemas de bases de dados relacionais, como o \textbf{Oracle SQL}. Esta linguagem permite a definição, manipulação e consulta de dados, sendo fundamental para a administração eficiente e eficaz de grandes volumes de informações. No contexto do Oracle SQL, os comandos SQL possibilitam a criação de estruturas complexas, a realização de consultas detalhadas e a implementação de regras de negócios através de procedimentos armazenados e funções.
+
+Neste capítulo, exploraremos os princípios fundamentais do Oracle SQL aplicados ao desenvolvimento e gestão de uma base de dados para um sistema hospitalar. Abordaremos desde a criação de \textit{tablespaces}, que são \textit{containers} lógicos para armazenamento físico dos objetos de banco de dados, até a definição de utilizadores, permissões e a construção de esquemas complexos que refletem as operações diárias de uma instituição de saúde.
+
+Para iniciar o projeto de um sistema de base de dados para um hospital, o primeiro passo foi criar um \textit{tablespace}. Um \textit{tablespace} é um \textit{container} lógico onde todos os objetos do banco de dados, como tabelas e índices, são armazenados fisicamente. Utilizámos o seguinte comando SQL para criar o \textit{tablespace}:
+
+Assim, para iniciar o projeto de um sistema de base de dados para um sistema hospitalar, o primeiro passo foi criar um \textit{tablespace}. Um \textit{tablespace} é um \textit{container} lógico onde todos os objetos do banco de dados, como tabelas e índices, são armazenados fisicamente.
+
+Usámos o seguinte comando SQL para criar o \textit{tablespace}:
+
+\begin{myminted}{sql}
+CREATE TABLESPACE hospital_tables
+DATAFILE 'hospital_files_01.dbf'
+SIZE 200M REUSE AUTOEXTEND ON
+NEXT 100M MAXSIZE UNLIMITED;
+\end{myminted}
+
+
+Aqui, criámos um \textit{tablespace} chamado \texttt{hospital\_tables} e associámo-lhe um ficheiro de dados denominado \texttt{hospital\_files\_01.dbf}. O tamanho inicial do ficheiro de dados foi de 200 \textit{megabytes}, podendo crescer automaticamente em incrementos de 100 \textit{megabytes} até um tamanho ilimitado.
+
+De seguida, criámos um novo utilizador chamado \textbf{hospital} com a senha \textbf{hospital}. Definimos o \texttt{hospital\_tables} como o \textit{tablespace} padrão para este utilizador e concedemos-lhe uma quota ilimitada para utilização do espaço nesse \textit{tablespace}. Utilizámos o seguinte comando:
+
+\begin{myminted}{psql}
+CREATE USER hospital IDENTIFIED BY "hospital" DEFAULT TABLESPACE hospital_tables 
+QUOTA UNLIMITED ON hospital_tables;
+\end{myminted}
+
+Para que o utilizador hospital pudesse conectar-se ao banco de dados e criar objetos, concedemos os privilégios necessários com o comando:
+
+\begin{myminted}{psql}
+GRANT CONNECT, RESOURCE, CREATE VIEW TO hospital;
+\end{myminted}
+
+Após a criação do \textit{tablespace} e do utilizador, o próximo passo foi definir o esquema atual para o utilizador \textbf{Hospital} e criar as sequências, tabelas, chaves primárias (PK) e chaves estrangeiras (FK). Para isso, executamos o ficheiro \texttt{hospital.sql} que para além das estruturas da base de dados, possui também os comandos para inserir dados iniciais, como informações de pacientes, funcionários, médicos e outras entidades fundamentais para o funcionamento do sistema hospitalar.
+
+\section{Exploração da Base de Dados}
+
+Na etapa de exploração da base de dados relacional, o grupo optou por realizar uma subdivisão do sistema hospitalar em três grandes visões: \textbf{Pacientes}, \textbf{Staff} e \textbf{Episodes}. De referir que esta divisão foi efetuada de forma meramente académica, com o objetivo de facilitar a exploração da Base de Dados. Ajudou a compreender melhor o funcionamento do sistema hospitalar e facilitou o processo de exploração da Base de Daddos Relacional.
+
+A primeira visão, \textbf{Pacientes}, abrange todas as informações relacionadas aos pacientes, que são acessíveis e passíveis de inserção, atualização e eliminação por parte dos utilizadores numa plataforma hospitalar. Esta categoria inclui o acesso a informações pessoais, contactos de emergência, detalhes do seguro e histórico médico.
+
+De maneira semelhante, a segunda visão \textbf{Staff}, engloba todas as informações relativas aos membros responsáveis pelo funcionamento de uma unidade hospitalar, isto é, todos os médicos, enfermeiros e técnicos, bem como o departamento onde estes desempenham as suas funções.
+
+Por fim, a visão \textbf{Episodes} alberga todas as informações internas do sistema hospitalar, incluindo prescrições médicas, episódios de atendimento, faturação, gestão de salas, triagem laboratorial e outras operações administrativas essenciais. Esta categoria é fundamental para assegurar a eficiência e a organização das atividades hospitalares, permitindo uma gestão integrada e eficaz de todos os recursos e processos.
+
+No entanto, para explorar ao máximo cada detalhe existente no sistema hospitalar, será frequentemente necessário envolver uma ou mais categorias de forma a obter uma visão completa e integrada das informações. Esta abordagem cruzada dados entre \textbf{Pacientes}, \textbf{Staff} e \textbf{Episodes} possibilita uma análise mais detalhada e precisa das operações hospitalares, melhorando assim a tomada de decisões e a eficiência dos processos internos.
+
+Virando agora o foco para a exploração em SQL, para realizar a exploração mais detalhada e pormenorizada possível, recorremos essencialmente a quatro tipos distintos de ferramentas: \textbf{Queries}, \textbf{Functions}, \textbf{Procedures} e \textbf{Triggers}.
+
+\subsection{Queries}
+
+Primeiramente, as \textbf{Queries} são usadas para interrogar a base de dados, permitindo a recuperação de dados específicos de acordo com critérios definidos. Estas consultas são fundamentais para obter informações precisas e rápidas sobre os diversos aspetos do sistema hospitalar, como dados de pacientes, histórico médico, disponibilidade de staff e detalhes de faturação.
+
+Um exemplo de uma Query é apresentado abaixo:
+
+\begin{myminted}{sql}
+SELECT M.M_NAME, M.M_QUANTITY, M.M_COST
+FROM Hospital.Medicine M
+ORDER BY M.M_NAME;
+\end{myminted}
+
+Neste exemplo, a query seleciona o nome, quantidade e custo de todos os medicamentos armazenados na tabela \textit{Medicine}, ordenados por nome.
+
+\subsection{Functions}
+
+As \textbf{Functions}, por outro lado, aceitam parâmetros, o que permite uma exploração mais aprofundada e personalizada de acordo com as necessidades do utilizador. Esta flexibilidade é crucial para simular o funcionamento real de um hospital, onde as operações muitas vezes dependem de variáveis dinâmicas e requisitos específicos, como a verificação de disponibilidade de médicos ou a análise de resultados de exames laboratoriais para um dado paciente.
+
+Um exemplo de uma Function é apresentado abaixo:
+
+\begin{myminted}{sql}
+CREATE OR REPLACE TYPE PatientInsurance_PlanRow AS OBJECT (
+  IDPATIENT NUMBER(38,0),
+  PATIENT_FNAME VARCHAR2(45),
+  PATIENT_LNAME VARCHAR2(45),
+  BLOOD_TYPE VARCHAR2(3),
+  PHONE VARCHAR2(12),
+  EMAIL VARCHAR2(50),
+  GENDER VARCHAR2(10),
+  POLICY_NUMBER VARCHAR2(45),
+  BIRTHDAY DATE,
+  INSURANCE_PLAN VARCHAR2(45)
+);
+\end{myminted}
+
+Este excerto de código cria um tipo de objeto chamado \textit{PatientInsurance\_PlanRow}, que é uma estrutura para armazenar informações de pacientes, incluindo detalhes como nome, tipo sanguíneo, telefone, email, género, número da apólice de seguro, data de nascimento e plano de seguro. Cada campo possui um tipo de dado específico, por exemplo, \textit{IDPATIENT} é um número, \textit{PATIENT\_FNAME} é uma string de até 45 caracteres, \textit{BIRTHDAY} é uma data, entre outros.
+
+\begin{myminted}{sql}
+CREATE OR REPLACE TYPE PatientInsurance_PlanTable IS TABLE OF PatientInsurance_PlanRow;
+\end{myminted}
+
+Aqui, definimos um tipo de tabela de objetos chamado \textit{PatientInsurance\_PlanTable}. Esta tabela é uma coleção de objetos do tipo \textit{PatientInsurance\_PlanRow}, permitindo armazenar múltiplas linhas de dados de pacientes.
+
+\begin{myminted}{sql}
+CREATE OR REPLACE FUNCTION ListPatientsByInsurancePlan(plan_name IN VARCHAR2)
+  RETURN PatientInsurance_PlanTable PIPELINED IS
+BEGIN
+  FOR rec IN (
+    SELECT p.IDPATIENT, p.PATIENT_FNAME, p.PATIENT_LNAME, p.BLOOD_TYPE, p.PHONE,
+           p.EMAIL, p.GENDER, p.POLICY_NUMBER, p.BIRTHDAY, i.INSURANCE_PLAN
+    FROM HOSPITAL.PATIENT p
+    JOIN HOSPITAL.INSURANCE i ON p.POLICY_NUMBER = i.POLICY_NUMBER
+    WHERE i.INSURANCE_PLAN = plan_name
+  ) LOOP
+    PIPE ROW (PatientInsurance_PlanRow(
+      rec.IDPATIENT, rec.PATIENT_FNAME, rec.PATIENT_LNAME, rec.BLOOD_TYPE, rec.PHONE,
+      rec.EMAIL, rec.GENDER, rec.POLICY_NUMBER, rec.BIRTHDAY, rec.INSURANCE_PLAN
+    ));
+  END LOOP;
+  RETURN;
+END ListPatientsByInsurancePlan;
+\end{myminted}
+
+Esta função, \textit{ListPatientsByInsurancePlan}, aceita um parâmetro \textit{plan\_name} do tipo \textit{VARCHAR2} e retorna uma tabela de objetos \textit{PatientInsurance\_PlanTable}. A função usa um loop \textit{FOR} para iterar sobre os resultados de uma consulta que seleciona informações de pacientes a partir das tabelas \textit{PATIENT} e \textit{INSURANCE}, onde o plano de seguro corresponde ao valor fornecido em \textit{plan\_name}. Para cada linha resultante, a função usa \textit{PIPE ROW} para adicionar um objeto \textit{PatientInsurance\_PlanRow} à tabela resultante, que contém os dados do paciente.
+
+\begin{myminted}{sql}
+SELECT * FROM TABLE(ListPatientsByInsurancePlan('Standard Plan'));
+\end{myminted}
+
+Esta consulta executa a função \textit{ListPatientsByInsurancePlan} passando o valor \textit{Standard Plan} como argumento. O resultado é uma tabela com todas as informações dos pacientes que estão no plano de seguro.
+
+Cada parte deste código SQL trabalha em conjunto para permitir a criação e utilização de uma função que retorna dados estruturados de pacientes com base no plano de seguro. Isso facilita a personalização e a flexibilidade ao consultar dados em um cenário de hospital real.
+
+\subsection{Procedures}
+
+As \textbf{Procedures} são blocos de código armazenados que executam uma série de operações SQL de forma automatizada. Estas são particularmente úteis para realizar tarefas repetitivas e complexas de forma eficiente, como a atualização de registos de pacientes, o processamento de faturações e a gestão de inventário de medicamentos. As Procedures permitem a automação de processos críticos, garantindo a consistência e a integridade dos dados ao longo do tempo.
+
+Embora as Views sejam úteis para simplificar consultas complexas e melhorar a segurança ao restringir colunas visíveis, elas têm limitações significativas em comparação com as Procedures. As Views não permitem lógica condicional ou controlos avançados de fluxo, têm capacidades limitadas para operações de escrita complexas, e podem introduzir overhead de performance em consultas complexas. As Procedures, por outro lado, são mais flexíveis e eficientes para automação de processos críticos, permitindo encapsular lógica de negócios complexa, realizar operações de escrita robustas e otimizar performance, além de facilitar a manutenção e reutilização do código. Portanto, para tarefas repetitivas e complexas, as Procedures são uma escolha mais adequada do que as Views.
+
+Um exemplo de uma Procedure é apresentado abaixo:
+
+\begin{myminted}{sql}
+DECLARE
+    max_id NUMBER;
+BEGIN
+    SELECT COALESCE(MAX(IDPATIENT), 0) INTO max_id FROM Hospital.PATIENT;
+
+    BEGIN
+        EXECUTE IMMEDIATE 'DROP SEQUENCE patient_seq_new';
+    EXCEPTION
+        WHEN OTHERS THEN
+            IF SQLCODE != -2289 THEN
+                RAISE;
+            END IF;
+    END;
+\end{myminted}
+
+No primeiro bloco, declaramos uma variável \textit{max\_id} para armazenar o valor máximo atual da coluna \textit{IDPATIENT} na tabela \textit{Patient}. Usamos a função \textit{COALESCE} para garantir que, caso não haja registos, \textit{max\_id} seja definido como 0. Em seguida, usamos \textit{EXECUTE IMMEDIATE} para criar uma nova sequência chamada \textit{patient\_seq\_new}, que começa a partir do valor \textit{max\_id + 1} e incrementa por 1 para cada novo registo. Esta sequência é usada para gerar IDs únicos para novos pacientes, evitando conflitos de chave primária.
+
+\begin{myminted}{sql}
+CREATE OR REPLACE PROCEDURE insert_patient (
+    p_patient_fname VARCHAR2,
+    p_patient_lname VARCHAR2,
+    p_blood_type    VARCHAR2,
+    p_phone         VARCHAR2,
+    p_email         VARCHAR2,
+    p_gender        VARCHAR2,
+    p_birthday      DATE,
+    p_policy_number VARCHAR2,
+    p_condition     VARCHAR2,
+    p_record_date   DATE,
+    p_contact_name  VARCHAR2,
+    p_contact_phone VARCHAR2,
+    p_contact_relation VARCHAR2,
+    p_provider      VARCHAR2,
+    p_insurance_plan VARCHAR2,
+    p_co_pay        NUMBER,
+    p_coverage      VARCHAR2,
+    p_maternity     CHAR,
+    p_dental        CHAR,
+    p_optical       CHAR
+) IS
+    v_idpatient NUMBER;
+BEGIN
+    INSERT INTO Hospital.PATIENT (
+        IDPATIENT, PATIENT_FNAME, PATIENT_LNAME, BLOOD_TYPE, PHONE, EMAIL, GENDER, BIRTHDAY, POLICY_NUMBER
+    )
+    VALUES (
+        patient_seq_new.NEXTVAL, p_patient_fname, p_patient_lname, p_blood_type, p_phone, p_email, p_gender, p_birthday, p_policy_number
+    )
+    RETURNING IDPATIENT INTO v_idpatient;
+
+    INSERT INTO Hospital.MEDICAL_HISTORY (
+        RECORD_ID, CONDITION, RECORD_DATE, IDPATIENT
+    )
+    VALUES (
+        patient_seq_new.NEXTVAL, p_condition, p_record_date, v_idpatient
+    );
+
+    INSERT INTO Hospital.INSURANCE (
+        POLICY_NUMBER, PROVIDER, INSURANCE_PLAN, CO_PAY, COVERAGE, MATERNITY, DENTAL, OPTICAL
+    )
+    VALUES (
+        p_policy_number, p_provider, p_insurance_plan, p_co_pay, p_coverage, p_maternity, p_dental, p_optical
+    );
+
+    INSERT INTO Hospital.EMERGENCY_CONTACT (
+        CONTACT_NAME, PHONE, RELATION, IDPATIENT
+    )
+    VALUES (
+        p_contact_name, p_contact_phone, p_contact_relation, v_idpatient
+    );
+
+    DBMS_OUTPUT.PUT_LINE('Patient and related records inserted successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+\end{myminted}
+
+No segundo bloco, criamos a Procedure \textit{insert\_patient}, que aceita vários parâmetros como o primeiro nome do paciente, apelido, tipo de sangue, email, telefone, género, número de apólice, data de nascimento e vários outro relacionado ao Paciente. Dentro da Procedure, usamos o comando \textit{INSERT INTO} para adicionar um novo registo na tabela \textit{Patient}, \textit{Medical\_History}, \textit{Insurance} e  \textit{Emergency\_Contact}, utilizando \textit{patient\_seq\_new.NEXTVAL} para definir o \textit{IDPATIENT} automaticamente. A data de nascimento é convertida para o formato de data apropriado usando \textit{TO\_DATE}. Após a inserção, uma mensagem de sucesso é exibida com \textit{DBMS\_OUTPUT.PUT\_LINE}. Caso ocorra algum erro, a exceção é capturada e uma mensagem de erro é exibida com os detalhes.
+
+Esta abordagem combinada de Queries, Functions e Procedures proporciona uma exploração robusta e abrangente do sistema hospitalar, garantindo que todas as informações necessárias estejam acessíveis e possam ser manipuladas conforme necessário para suportar a gestão eficiente e eficaz.
+
+\subsection{Triggers}
+
+Finalmente, os \textbf{Triggers} em Oracle SQL são um tipo especial de procedimento armazenado que é automaticamente executado (ou "disparado") pelo Oracle Database em resposta a certos eventos em uma tabela ou visão. Os triggers são usados para aplicar regras de negócios de forma automática, manter a integridade dos dados, realizar auditoria de alterações, e implementar outras funcionalidades automáticas que não podem ser facilmente realizadas apenas com comandos SQL simples. Um exemplo de um Trigger implementado é apresentado abaixo:
+
+\begin{myminted}{sql}
+CREATE TABLE Hospital.New_Patient_Requests (
+    request_id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    patient_fname VARCHAR2(45),
+    patient_lname VARCHAR2(45),
+    blood_type    VARCHAR2(3),
+    phone         VARCHAR2(12),
+    email         VARCHAR2(50),
+    gender        VARCHAR2(10),
+    birthday      DATE,
+    policy_number VARCHAR2(45),
+    condition     VARCHAR2(45),
+    record_date   DATE,
+    contact_name  VARCHAR2(45),
+    contact_phone VARCHAR2(30),
+    contact_relation VARCHAR2(45),
+    provider      VARCHAR2(45),
+    insurance_plan VARCHAR2(45),
+    co_pay        NUMBER,
+    coverage      VARCHAR2(20),
+    maternity     CHAR(1),
+    dental        CHAR(1),
+    optical       CHAR(1)
+);
+\end{myminted}
+
+\begin{myminted}{sql}
+CREATE OR REPLACE TRIGGER trg_insert_patient
+AFTER INSERT ON Hospital.New_Patient_Requests
+FOR EACH ROW
+BEGIN
+    insert_patient(
+        :NEW.patient_fname,
+        :NEW.patient_lname,
+        :NEW.blood_type,
+        :NEW.phone,
+        :NEW.email,
+        :NEW.gender,
+        :NEW.birthday,
+        :NEW.policy_number,
+        :NEW.condition,
+        :NEW.record_date,
+        :NEW.contact_name,
+        :NEW.contact_phone,
+        :NEW.contact_relation,
+        :NEW.provider,
+        :NEW.insurance_plan,
+        :NEW.co_pay,
+        :NEW.coverage,
+        :NEW.maternity,
+        :NEW.dental,
+        :NEW.optical
+    );
+END;
+\end{myminted}
+
+O trigger \textit{trg\_insert\_patient} foi criado para automatizar a inserção de um novo paciente e seus registos relacionados (como historial médico, seguro e contacto de emergência) na base de dados do hospital. Ele é disparado automaticamente após a inserção de um novo pedido de paciente na tabela \textit{Hospital.New\_Patient\_Requests}.
+
+No primeiro bloco, criamos a tabela \textit{Hospital.New\_Patient\_Requests} que é definida para armazenar pedidos de novos pacientes. Esta tabela contém informações detalhadas sobre o paciente, incluindo nome, tipo sanguíneo, contacto, seguro, entre outros. Cada coluna da tabela armazena uma informação específica sobre o paciente.
+
+No segundo bloco, o trigger é definido para ser disparado após uma inserção (\textit{AFTER INSERT}) na tabela \textit{Hospital.New\_Patient\_Requests}. Para cada linha inserida (\textit{FOR EACH ROW}), o trigger chama o procedimento \textit{insert\_patient} previamente mencionado e descrito com os valores dos novos registos inseridos.
+
+É importante referir que os triggers oferecem várias vantagens no contexto dos procedimentos de inserção, atualização e remoção de dados específicos, neste caso na automatização da inserção de um novo paciente e seus registos associados. Algumas das principais vantagens prendem-se com a \textbf{Redução de Erros Manuais} que, ao automatizar a inserção dos dados do paciente e os seus registos relacionados, o trigger elimina a possibilidade de erros humanos que poderiam ocorrer durante a inserção manual de dados em múltiplas tabelas. Outra das principais vantages consiste na \textbf{Consistência de Dados} pois o trigger garante que todas as informações relacionadas ao paciente sejam inseridas de forma consistente e simultânea nas tabelas apropriadas (\textit{Hospital.PATIENT}, \textit{Hospital.MEDICAL\_HISTORY}, \textit{Hospital.INSURANCE}, \textit{Hospital.EMERGENCY\_CONTACT}), algo que é fundamental numa Base de Dados Relacional.
+
+\subsection{Queries, Functions, Procedures e Triggers implementados}
+
+De seguida, iremos apresentar todas as explorações implementadas, bem como uma explicação detalhada de cada uma das ferramentas implementadas, para as três visões mencionadas acima, bem como para a visão global da Base de Dados que engloba sempre duas ou mais visões.
+
+\subsubsection{Visão Pacientes}
+
+Na visão dos pacientes, o nosso foco foi extrair as informações necessárias para o funcionamento de um hospital real. Extraímos todos os dados relacionados a pacientes específicos, além de tratar da inserção, atualização e remoção dessas informações na base de dados.
+
+No processo de inserção, desenvolvemos um procedimento que insere informações de um novo paciente em todas as quatro tabelas da base de dados. Consideramos que não faria sentido inserir os dados em apenas uma tabela, pois isso não reflete a realidade de um hospital.
+
+Para a atualização, permitimos que qualquer tabela relacionada a pacientes possa ser atualizada. Por exemplo, pode ser necessário atualizar apenas o contato de emergência de um paciente ou realizar uma atualização no seu histórico médico.
+
+No que diz respeito à remoção, criamos um procedimento que remove todas as informações do paciente de todas as tabelas relevantes. Além disso, o procedimento redefine o ID do paciente na tabela de Episódios para zero. Optamos por não excluir o episódio, pois a preservação dos dados históricos é fundamental numa base de dados relacional.
+
+Associados aos procedimentos de Inserção, Atualização e Remoção, foram desenvolvidos Triggers para que se tenha conhecimento de todos o tipo de alterações aos dados da Base de Dados, para garantir a consistência dos dados.
+
+\vspace{0.15cm}
+\textbf{AllInfoPatient:} Função que retorna todas as informações sobre um paciente específico dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registos de pacientes e retornar cada linha como um objeto PatientRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoMedicalHistory:} Função que retorna todos os registos do historial médico para um paciente específico dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registos de histórico médico e retornar cada linha como um objeto MedicalHistoryRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoInsurance:} Função que retorna todas as informações sobre o seguro de um paciente específico dado o número da apólice. A função usa uma tabela pipelined para iterar sobre os registros de seguro e retornar cada linha como um objeto InsuranceRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoEmergencyContact:} Função que tetorna todas as informações sobre os contatos de emergência de um paciente específico, dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registros de contatos de emergência e retornar cada linha como um objeto EmergencyContactRow.
+
+\vspace{0.15cm}
+ \textbf{AllInfoPatient:} Função que Retorna todas as informações combinadas de um paciente específico, dado o ID do paciente. A função junta dados de várias tabelas (paciente, histórico médico, seguro e contato de emergência) e retorna cada linha como um objeto PatientAllInfoRow.
+ 
+\vspace{0.15cm}
+\textbf{AllInfoPatientByBloodType:} Função que retorna todas as informações dos pacientes que possuem um determinado grupo sanguíneo. A função usa uma tabela pipelined para iterar sobre os registros de pacientes e retornar cada linha como um objeto PatientRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoPatientByGender:} Função que retorna todas as informações dos pacientes que possuem um determinado gênero. A função usa uma tabela pipelined para iterar sobre os registros de pacientes e retornar cada linha como um objeto PatientRow.
+
+\vspace{0.15cm}
+\textbf{GetPatientsWithCondition:} Função que retorna todas as informações dos pacientes que possuem uma condição médica específica. A função usa uma tabela pipelined para iterar sobre os registros de pacientes e histórico médico, retornando cada linha como um objeto PatientRow.
+
+\vspace{0.15cm}
+\textbf{ListAllRelationsProc:} Procedimento que lista todos os tipos de relações de contato de emergência distintos na tabela de contatos de emergência.
+
+\vspace{0.15cm}
+\textbf{ListAllProvidersProc:} Procedimento que lista todos os providenciadores de seguro distintos na tabela de seguros.
+
+\vspace{0.15cm}
+\textbf{ListAllInsurancePlansProc:} Procedimento que lista todos os planos de seguro distintos na tabela de seguros.
+
+\vspace{0.15cm}
+\textbf{ListAllCoveragesProc:} Procedimento que lista todos os tipos de cobertura distintos na tabela de seguros.
+
+\vspace{0.15cm}
+\textbf{ListAllConditionsProc:} Procedimento que lista todas as condições médicas distintas na tabela de histórico médico.
+
+\vspace{0.15cm}
+\textbf{ListAllBloodTypesProc:} Procedimento que lista todos os tipos de sangue distintos na tabela de pacientes.
+
+\vspace{0.15cm}
+\textbf{ListPatientsByMedicalHistoryDate:} Função que retorna todos os pacientes que possuem registos de historial médico em uma data específica.
+
+\vspace{0.15cm}
+\textbf{ListPatientsByInsurancePlan:} Função que retorna todos os pacientes que possuem um plano de seguro específico.
+
+\vspace{0.15cm}
+\textbf{ListPatientsByCoverage:} Função que retorna todos os pacientes que possuem uma cobertura específica.
+
+\vspace{0.15cm}
+\textbf{ListPatientsByAgeRange:} Função que retorna todos os pacientes dentro de uma faixa etária específica.
+
+\vspace{0.15cm}
+\textbf{ListPatientsWithMaternityCoverageProc:} Procedimento  que retorna todos os pacientes que possuem cobertura de maternidade no seu plano de seguro.
+
+\vspace{0.15cm}
+\textbf{ListPatientsWithDentalCoverage:} Função que retorna todos os pacientes que possuem cobertura dental no seu plano de seguro.
+
+\vspace{0.15cm}
+\textbf{ListPatientsWithOpticalCoverageProc:} Procedimento que retorna todos os pacientes que possuem cobertura óptica no seu plano de seguro.
+
+\vspace{0.15cm}
+\textbf{GetPatientCountPerBloodTypeProc:} Procedimento que conta o número de pacientes para cada tipo sanguíneo distinto na tabela de pacientes.
+
+\vspace{0.15cm}
+\textbf{GetPatientCountPerConditionProc:} Procedimento que conta o número de pacientes para cada condição médica distinta na tabela de historial médico.
+
+\vspace{0.15cm}
+\textbf{insert\_patient:} Procedimento que insere um novo paciente e os registos relacionados de historial médico, seguro e contacto de emergência no banco de dados.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_patient:} Trigger que chama o procedimento \textit{insert\_patient} após a inserção de um novo pedido de paciente na tabela \textit{New\_Patient\_Requests}.
+
+\vspace{0.15cm}
+\textbf{update\_patient:} Procedimento que atualiza os detalhes de um paciente na tabela de pacientes.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_patient:} Trigger que chama o procedimento \textit{update\_patient} antes de uma atualização na tabela de pacientes.
+
+\vspace{0.15cm}
+\textbf{update\_medical\_history:} Procedimento que atualiza os detalhes do historial médico de um paciente.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_medical\_history:} Trigger que chama o procedimento \textit{update\_medical\_history} antes de uma atualização na tabela de historial médico.
+
+\vspace{0.15cm}
+\textbf{update\_insurance:}Procedimento que atualiza os detalhes do seguro de um paciente.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_insurance:} Trigger que chama o procedimento \textit{update\_insurance} antes de uma atualização na tabela de seguros.
+
+\vspace{0.15cm}
+\textbf{update\_emergency\_contact:} Procedimento que atualiza os detalhes do contacto de emergência de um paciente.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_emergency\_contact:} Trigger que chama o procedimento \textit{update\_emergency\_contact} antes de uma atualização na tabela de contactos de emergência.
+
+\vspace{0.15cm}
+\textbf{delete\_patient\_and\_related:} Procedimento que elimina um paciente e todos os registos relacionados de historial médico, seguro e contacto de emergência. Também define o ID do paciente para 0 na tabela de episódios.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_patient\_and\_related:} Trigger que chama o procedimento \textit{delete\_patient\_and\_related} antes de uma eliminação na tabela de pacientes.™
+
+\subsubsection{Visão Staff}
+
+Na visão do staff, o nosso foco foi extrair as informações necessárias para o funcionamento de um hospital real. Extraímos todos os dados relacionados aos funcionários, além de tratar da inserção, atualização e remoção dessas informações na base de dados.
+
+No processo de inserção, desenvolvemos procedimentos que permitem a inclusão de novos membros do staff nas tabelas relevantes da base de dados. Consideramos que é essencial garantir que todas as informações importantes sobre um novo funcionário estejam devidamente registadas, refletindo a realidade operacional de um hospital.
+
+Para a atualização, permitimos que qualquer tabela relacionada ao staff possa ser atualizada. Por exemplo, pode ser necessário atualizar apenas o contacto de um funcionário, ajustar suas qualificações ou alterar sua designação. Nosso objetivo foi garantir que todas as informações possam ser mantidas precisas e atualizadas de maneira eficiente.
+
+No que diz respeito à remoção, criamos procedimentos que removem todas as informações de um funcionário das tabelas relevantes. Além disso, garantimos que quaisquer referências a esse funcionário em outras tabelas, mais concretamente o ID, seja redefinido para 0 ao invés da remoção. Optamos por não excluir dados históricos, como registos de atendimento ou episódios, para preservar a integridade e a continuidade dos dados históricos.
+
+Tal como na visão acima, associados aos procedimentos de Inserção, Atualização e Remoção, foram desenvolvidos Triggers para que se tenha conhecimento de todos o tipo de alterações aos dados da Base de Dados, para garantir a consistência dos dados.
+
+\vspace{0.15cm}
+\textbf{AllInfoStaff:} Função que retorna todas as informações sobre um funcionário específico dado o ID do funcionário. A função usa uma tabela pipelined para iterar sobre os registos de funcionários e retornar cada linha como um objeto StaffRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoDepartment:} Função que retorna todas as informações sobre um departamento específico dado o ID do funcionário. A função usa uma tabela pipelined para iterar sobre os registos de departamentos e retornar cada linha como um objeto DepartmentRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoNurse:} Função que retorna todas as informações sobre uma enfermeira específica dado o ID do funcionário. A função usa uma tabela pipelined para iterar sobre os registos de enfermeiras e retornar cada linha como um objeto NurseRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoDoctor:} Função que retorna todas as informações sobre um médico específico dado o ID do médico. A função usa uma tabela pipelined para iterar sobre os registos de médicos e retornar cada linha como um objeto DoctorRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoTechnician:} Função que retorna todas as informações sobre um técnico específico dado o ID do funcionário. A função usa uma tabela pipelined para iterar sobre os registos de técnicos e retornar cada linha como um objeto TechnicianRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoStaffByDateJoining:} Função que retorna todas as informações sobre funcionários que se juntaram numa data específica. A função usa uma tabela pipelined para iterar sobre os registos de funcionários e retornar cada linha como um objeto StaffRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoStaffByDateSeperation:} Função que retorna todas as informações sobre funcionários que se separaram numa data específica. A função usa uma tabela pipelined para iterar sobre os registos de funcionários e retornar cada linha como um objeto StaffRow.
+
+\vspace{0.15cm}
+\textbf{AllInfoStaffByStatus:} Função que retorna todas as informações sobre funcionários com um status ativo ou inativo específico. A função usa uma tabela pipelined para iterar sobre os registos de funcionários e retornar cada linha como um objeto StaffRow.
+
+\vspace{0.15cm}
+\textbf{GetDoctorQualifications:} Função que retorna todas as qualificações de um médico específico dado o ID do médico. A função usa uma tabela pipelined para iterar sobre os registos de qualificações e retornar cada linha como um objeto QualificationRow.
+
+\vspace{0.15cm}
+\textbf{GetEmployeeCountPerDepartmentProc:} Procedimento que conta o número de funcionários por departamento e retorna os resultados em uma coleção de objetos DepartmentEmployeeCountRow.
+
+\vspace{0.15cm}
+\textbf{GetNurseCountPerDepartmentProc:} Procedimento que conta o número de enfermeiras por departamento e retorna os resultados em uma coleção de objetos DepartmentNurseCountRow.
+
+\vspace{0.15cm}
+\textbf{GetDoctorCountPerDepartmentProc:} Procedimento que conta o número de médicos por departamento e retorna os resultados em uma coleção de objetos DepartmentDoctorCountRow.
+
+\vspace{0.15cm}
+\textbf{GetTechniciansCountPerDepartmentProc:} Procedimento que conta o número de técnicos por departamento e retorna os resultados em uma coleção de objetos DepartmentTechniciansCountRow.
+
+\vspace{0.15cm}
+\textbf{insert\_staff\_and\_nurse:} Procedimento que insere um novo funcionário que é uma enfermeira e atualiza a contagem de funcionários no departamento correspondente.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_staff\_and\_nurse:} Trigger que chama o procedimento \textit{insert\_staff\_and\_nurse} após a inserção de um novo pedido de enfermeira na tabela \textit{New\_Staff\_Nurse\_Requests}.
+
+\vspace{0.15cm}
+\textbf{insert\_staff\_and\_doctor:} Procedimento que insere um novo funcionário que é um médico e atualiza a contagem de funcionários no departamento correspondente.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_staff\_and\_doctor:} Trigger que chama o procedimento \textit{insert\_staff\_and\_doctor} após a inserção de um novo pedido de médico na tabela \textit{New\_Staff\_Doctor\_Requests}.
+
+\vspace{0.15cm}
+\textbf{insert\_staff\_and\_technician:} Procedimento que insere um novo funcionário que é um técnico e atualiza a contagem de funcionários no departamento correspondente.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_staff\_and\_technician:} Trigger que chama o procedimento \textit{insert\_staff\_and\_technician} após a inserção de um novo pedido de técnico na tabela \textit{New\_Staff\_Technician\_Requests}.
+
+\vspace{0.15cm}
+\textbf{insert\_hospital\_department:} Procedimento que insere um novo departamento na tabela Hospital.DEPARTMENT.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_department:} Trigger que chama o procedimento \textit{insert\_hospital\_department} após a inserção de um novo pedido de departamento na tabela \textit{New\_Department\_Requests}.
+
+\vspace{0.15cm}
+\textbf{update\_staff:} Procedimento que atualiza as informações de um funcionário e, se o departamento mudar, atualiza as contagens de funcionários nos departamentos antigo e novo.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_staff:} Trigger que chama o procedimento \textit{update\_staff} antes de uma atualização na tabela Hospital.STAFF.
+
+\vspace{0.15cm}
+\textbf{update\_doctor:} Procedimento que atualiza as qualificações de um médico.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_doctor:} Trigger que chama o procedimento \textit{update\_doctor} antes de uma atualização na tabela \textit{Hospital.DOCTOR}.
+
+\vspace{0.15cm}
+\textbf{update\_department:} Procedimento que atualiza as informações de um departamento.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_department:} Trigger que chama o procedimento \textit{update\_department} antes de uma atualização na tabela \textit{Hospital.DEPARTMENT}.
+
+\vspace{0.15cm}
+\textbf{delete\_staff\_and\_nurse:} Procedimento que elimina um funcionário que é uma enfermeira, atualiza a contagem de funcionários no departamento correspondente e redefine o enfermeiro responsável na tabela \textit{Hospital.HOSPITALIZATION}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_staff\_and\_nurse:} Trigger que chama o procedimento \textit{delete\_staff\_and\_nurse} antes de uma eliminação na tabela Hospital.STAFF.
+
+\vspace{0.15cm}
+\textbf{delete\_staff\_and\_doctor:} Procedimento que elimina um funcionário que é um médico, atualiza a contagem de funcionários no departamento correspondente e redefine o ID do médico na tabela \textit{Hospital.APPOINTMENT}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_staff\_and\_doctor:} Trigger que chama o procedimento \textit{delete\_staff\_and\_doctor} antes de uma eliminação na tabela \textit{Hospital.STAFF}.
+
+\vspace{0.15cm}
+\textbf{delete\_staff\_and\_technician:} Procedimento que elimina um funcionário que é um técnico, atualiza a contagem de funcionários no departamento correspondente e redefine o ID do técnico na tabela \textit{Hospital.LAB\_SCREENING}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_staff\_and\_technician:} Trigger que chama o procedimento \textit{delete\_staff\_and\_technician} antes de uma eliminação na tabela \textit{Hospital.STAFF}.
+
+\vspace{0.15cm}
+\textbf{DeleteDepartment:} Procedimento que elimina um departamento e atualiza os funcionários para definir o ID do departamento como 0.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_department:} Trigger que chama o procedimento DeleteDepartment antes de uma eliminação na tabela \textit{Hospital.DEPARTMENT}.
+
+\subsubsection{Visão Episodes}
+
+Na visão dos Episódios, o nosso foco foi a extração de informações abrangentes sobre os diferentes episódios médicos registados no hospital. Desenhamos queries que permitem listar todas as informações detalhadas sobre episódios específicos, incluindo consultas, hospitalizações, prescrições e faturas associadas. Com estas queries, podemos obter uma visão completa e detalhada de cada episódio, garantindo a integração e acessibilidade dos dados críticos para a gestão hospitalar.
+
+Criamos funções que retornam informações sobre episódios médicos para pacientes específicos, tipos de condições, médicos responsáveis, e técnicos de laboratório. Além disso, desenvolvemos funções para listar detalhes financeiros associados aos episódios, como faturas e custos totais. Estas funções utilizam tabelas pipelined para iterar sobre os registos e retornar cada linha como um objeto, facilitando a manipulação e análise dos dados.
+
+Para garantir a integridade e atualização dos dados, incluímos triggers que invocam procedimentos específicos após operações de inserção, atualização e exclusão nas tabelas relacionadas aos episódios. Estes procedimentos asseguram que todas as informações associadas sejam corretamente mantidas e atualizadas, refletindo qualquer mudança feita nos registos de episódios.
+
+A nossa abordagem foi pensada para proporcionar uma visão holística dos episódios, permitindo uma gestão eficiente e detalhada dos dados médicos, essenciais para a operação diária de um hospital. Através destas queries e procedimentos, conseguimos não apenas listar e consultar informações, mas também manter a base de dados consistente e atualizada, apoiando a tomada de decisões e o acompanhamento preciso dos pacientes e seus tratamentos.
+
+\vspace{0.15cm}
+\textbf{AllInfoMedicine:} Função que retorna todas as informações sobre um medicamento específico dado o ID do medicamento. A função usa uma tabela pipelined para iterar sobre os registos de medicamentos e retornar cada linha como um objeto \textit{MedicineRow}.
+
+\vspace{0.15cm}
+\textbf{AllInfoPrescription:} Função que retorna todas as informações sobre uma prescrição específica dado o ID da prescrição. A função usa uma tabela pipelined para iterar sobre os registos de prescrições e retornar cada linha como um objeto \textit{PrescriptionRow}.
+
+\vspace{0.15cm}
+\textbf{AllInfoEpisode:} Função que retorna todas as informações sobre um episódio específico dado o ID do episódio. A função usa uma tabela pipelined para iterar sobre os registos de episódios e retornar cada linha como um objeto \textit{EpisodeRow}.
+
+\vspace{0.15cm}
+\textbf{AllInfoEpisode:} Função que retorna todas as informações sobre um episódio específico, incluindo consultas, hospitalizações, prescrições e facturas associadas, dado o ID do episódio. A função usa uma tabela pipelined para iterar sobre os registos de episódios e retornar cada linha como um objeto \textit{EpisodeRow}.
+
+\vspace{0.15cm}
+\textbf{AllInfoBill:} Função que retorna todas as informações sobre uma fatura específica dado o ID da fatura. A função usa uma tabela pipelined para iterar sobre os registos de faturas e retornar cada linha como um objeto \textit{BillRow}.
+
+\vspace{0.15cm}
+\textbf{AllInfoRoom:} Função que retorna todas as informações sobre um quarto específico dado o ID do quarto. A função usa uma tabela pipelined para iterar sobre os registos de quartos e retornar cada linha como um objeto \textit{RoomRow}.
+
+\vspace{0.15cm}
+\textbf{AllInfoHospitalization:} Função que retorna todas as informações sobre uma hospitalização específica dado o ID do episódio. A função usa uma tabela pipelined para iterar sobre os registos de hospitalizações e retornar cada linha como um objeto \textit{HospitalizationRow}.
+
+\vspace{0.15cm}
+\textbf{AllInfoLabScreening:} Função que retorna todas as informações sobre uma triagem laboratorial específica dado o ID da triagem. A função usa uma tabela pipelined para iterar sobre os registos de triagens laboratoriais e retornar cada linha como um objeto \textit{LabScreeningRow}.
+
+\vspace{0.15cm}
+\textbf{GetAllEpisodeInfo:} Função que retorna todas as informações detalhadas sobre um episódio específico, incluindo consultas, hospitalizações, prescrições e faturas associadas, dado o ID do episódio. A função usa uma tabela pipelined para iterar sobre os registos de episódios e retornar cada linha como um objeto \textit{EpisodeInfoRow}.
+
+\vspace{0.15cm}
+\textbf{ListRoomsByTypeProc:} Procedimento que lista todos os quartos ordenados pelo tipo. Usa uma tabela de objetos \textit{RoomTypeRow} para armazenar e retornar as informações.
+
+\vspace{0.15cm}
+\textbf{ListRoomOccupationsByDateRange:} Função que lista todas as ocupações de quartos num intervalo de datas específico. Usa uma tabela pipelined para retornar os registos como objetos \textit{RoomOccupationRow}.
+
+\vspace{0.15cm}
+\textbf{ListCurrentlyOccupiedRoomsProc:} Procedimento que lista todos os quartos atualmente ocupados. Usa uma tabela de objetos \textit{OccupiedRoomRow} para armazenar e retornar as informações.
+
+\vspace{0.15cm}
+\textbf{ListDistinctRoomTypesAndCostsProc:} Procedimento que lista todos os tipos de quartos distintos e os respetivos custos, ordenados pelo custo. Usa uma tabela de objetos \textit{DistinctRoomTypeRow} para armazenar e retornar as informações.
+
+\vspace{0.15cm}
+\textbf{ListHospitalizationsByDateRange:} Função que lista todas as hospitalizações num intervalo de datas específico. Usa uma tabela pipelined para retornar os registos como objetos \textit{HospitalizationByDateRow}.
+
+\vspace{0.15cm}
+\textbf{ListHospitalizationsByRoomType:} Função que lista todas as hospitalizações para um tipo de quarto específico. Usa uma tabela pipelined para retornar os registos como objetos \textit{HospitalizationByRoomTypeRow}.
+
+\vspace{0.15cm}
+\textbf{GetTotalAppointments:} Função que retorna o número total de consultas na tabela \textit{Hospital.Appointment}.
+
+\vspace{0.15cm}
+\textbf{GetTotalBillingForEpisode:} Função que calcula o valor total de faturação para um determinado episódio. A função retorna uma string com o detalhe dos custos de quarto, testes, outras taxas e o total.
+
+\vspace{0.15cm}
+\textbf{ListBillsByPaymentStatus:} Função que lista todas as faturas com um status de pagamento específico. Usa uma tabela pipelined para retornar os registos como objetos \textit{BillRowNew}.
+
+\vspace{0.15cm}
+\textbf{GetTotalCostByRegisteredDate:} Função que calcula o custo total das faturas registadas entre duas datas específicas.
+
+\vspace{0.15cm}
+\textbf{GetTotalCostOfAllBills:} Função que calcula o custo total de todas as faturas na tabela \textit{Hospital.BILL}.
+
+\vspace{0.15cm}
+\textbf{GetLabScreeningsByEpisode:} Função que retorna todas as triagens laboratoriais para um episódio específico. Usa uma tabela pipelined para retornar os registos como objetos \textit{LabScreeningRowNew}.
+
+\vspace{0.15cm}
+\textbf{GetMedicinesAndPrescriptionsByEpisode:} Função que retorna todas as prescrições e respetivos medicamentos para um episódio específico. Usa uma tabela pipelined para retornar os registos como objetos \textit{MedicinePrescriptionRow}.
+
+\vspace{0.15cm}
+\textbf{GetBillInfoByPatient:} Função que retorna todas as informações de faturas para um paciente específico e o custo total acumulado. Usa uma tabela pipelined para retornar os registos como objetos \textit{BillInfoRow}.
+
+\vspace{0.15cm}
+\textbf{ListHospitalizationsOrderedByCost:} Procedimento que lista todas as hospitalizações ordenadas pelo custo total associado. Usa uma tabela de objetos \textit{HospitalizationWithCostRow} para armazenar e retornar as informações.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_episode\_and\_related:} Trigger que chama o procedimento \textit{insert\_episode} após uma inserção na tabela \textit{Hospital.New\_Episode\_Requests}.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_room:} Trigger que chama o procedimento \textit{insert\_room} após uma inserção na tabela \textit{Hospital.New\_Room\_Requests}.
+
+\vspace{0.15cm}
+\textbf{trg\_insert\_medicine:} Trigger que chama o procedimento \textit{insert\_medicine} após uma inserção na tabela \textit{Hospital.New\_Medicine\_Requests}.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_bill:} Trigger que chama o procedimento \textit{update\_bill} antes de uma atualização na tabela \textit{Hospital.BILL}.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_lab\_screening:} Trigger que chama o procedimento \textit{update\_lab\_screening} antes de uma atualização na tabela \textit{Hospital.LAB\_SCREENING}.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_appointment:} Trigger que chama o procedimento \textit{update\_appointment} antes de uma atualização na tabela \textit{Hospital.APPOINTMENT}.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_hospitalization:} Trigger que chama o procedimento \textit{update\_hospitalization} antes de uma atualização na tabela \textit{Hospital.HOSPITALIZATION}.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_room:} Trigger que chama o procedimento \textit{update\_room} antes de uma atualização na tabela \textit{Hospital.ROOM}.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_prescription:} Trigger que chama o procedimento \textit{update\_prescription} antes de uma atualização na tabela \textit{Hospital.PRESCRIPTION}.
+
+\vspace{0.15cm}
+\textbf{trg\_update\_medicine:} Trigger que chama o procedimento \textit{update\_medicine} antes de uma atualização na tabela \textit{Hospital.MEDICINE}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_episode:} Trigger que chama o procedimento \textit{delete\_episode\_and\_update\_related} antes de uma eliminação na tabela \textit{Hospital.EPISODE}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_bill:} Trigger que chama o procedimento \textit{delete\_bill} antes de uma eliminação na tabela \textit{Hospital.BILL}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_lab\_screening:} Trigger que chama o procedimento \textit{delete\_lab\_screening} antes de uma eliminação na tabela \textit{Hospital.LAB\_SCREENING}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_appointment:} Trigger que chama o procedimento \textit{delete\_appointment} antes de uma eliminação na tabela \textit{Hospital.APPOINTMENT}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_hospitalization:} Trigger que chama o procedimento \textit{delete\_hospitalization} antes de uma eliminação na tabela \textit{Hospital.HOSPITALIZATION}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_room:} Trigger que chama o procedimento \textit{delete\_room} antes de uma eliminação na tabela \textit{Hospital.ROOM}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_prescription:} Trigger que chama o procedimento \textit{delete\_prescription} antes de uma eliminação na tabela \textit{Hospital.PRESCRIPTION}.
+
+\vspace{0.15cm}
+\textbf{trg\_delete\_medicine:} Trigger que chama o procedimento \textit{delete\_medicine} antes de uma eliminação na tabela \textit{Hospital.MEDICINE}.
+
+\subsubsection{Visão Global}
+
+Na visão global, o nosso objetivo foi integrar e consolidar informações de diversas áreas do hospital, proporcionando uma visão holística e abrangente dos dados médicos e operacionais. Desenvolvemos queries que abrangem múltiplas visões, facilitando a análise e a gestão dos dados através de uma abordagem integrada.
+
+As funções e procedimentos globais permitem a extração de informações que cruzam diferentes domínios, como pacientes, staff, episódios médicos, hospitalizações, prescrições, exames laboratoriais e faturas. Estas queries foram desenhadas para garantir que os dados sejam consistentes, acessíveis e úteis para a tomada de decisões estratégicas e operacionais.
+
+Criamos funções que retornam informações detalhadas sobre episódios médicos, incluindo consultas, hospitalizações, prescrições e faturas associadas, proporcionando uma visão completa de cada caso clínico. Além disso, desenvolvemos funções para listar custos totais associados a episódios, calcular faturações, e obter detalhes de triagens laboratoriais e prescrições por episódio. Estas funções utilizam tabelas pipelined para iterar sobre os registos e retornar cada linha como um objeto, facilitando a manipulação e análise dos dados.
+
+A nossa abordagem global foi pensada para fornecer uma plataforma robusta e integrada de gestão de dados hospitalares, permitindo uma visão abrangente e detalhada das operações e tratamentos médicos. Com estas queries e procedimentos, conseguimos melhorar a eficiência da gestão hospitalar, apoiar a tomada de decisões informadas, e garantir que todas as informações críticas estejam disponíveis e atualizadas para todos os stakeholders envolvidos.
+
+\vspace{0.15cm}
+\textbf{PrescriptionsForPatient:} Função que retorna todas as prescrições para um paciente específico dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registros de prescrições e retornar cada linha como um objeto \textit{PrescriptionRowNew}.
+
+\vspace{0.15cm}
+\textbf{ListPatientsInRoom:} Função que retorna os pacientes alocados a um quarto específico dado o ID do quarto. A função usa uma tabela pipelined para iterar sobre os registros de pacientes e retornar cada linha como um objeto \textit{RoomPatientsRow}.
+
+\vspace{0.15cm}
+\textbf{ListHospitalizationsForPatient:} Função que retorna todas as hospitalizações de um determinado paciente dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registros de hospitalização e retornar cada linha como um objeto \textit{HospitalizationRow}.
+
+\vspace{0.15cm}
+\textbf{ListHospitalizationsByNurse:} Função que retorna hospitalizações por enfermeira responsável dado o ID da enfermeira. A função usa uma tabela pipelined para iterar sobre os registros de hospitalização e retornar cada linha como um objeto \textit{HospitalizationByNurseRow}.
+
+\vspace{0.15cm}
+\textbf{ListEpisodesForPatient:} Função que retorna todos os episódios médicos de um paciente específico dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registros de episódios e retornar cada linha como um objeto \textit{EpisodeRowNew}.
+
+\vspace{0.15cm}
+\textbf{ListEpisodesByCondition:} Função que retorna episódios médicos por tipo de condição dado o tipo da condição. A função usa uma tabela pipelined para iterar sobre os registros de episódios e retornar cada linha como um objeto \textit{EpisodeByConditionRow}.
+
+\vspace{0.15cm}
+\textbf{ListEpisodesByDoctor:} Função que retorna todos os episódios médicos tratados por um médico específico dado o ID do médico. A função usa uma tabela pipelined para iterar sobre os registros de episódios e retornar cada linha como um objeto \textit{EpisodeByDoctorRow}.
+
+\vspace{0.15cm}
+\textbf{ListLabScreeningsByPatient:} Função que retorna todos os exames laboratoriais para um paciente específico dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registros de exames laboratoriais e retornar cada linha como um objeto \textit{LabScreeningRow}.
+
+\vspace{0.15cm}
+\textbf{ListLabScreeningDetailsByTechnician:} Função que retorna exames laboratoriais baseados no técnico responsável dado o ID do técnico. A função usa uma tabela pipelined para iterar sobre os registros de exames laboratoriais e retornar cada linha como um objeto \textit{LabScreeningDetailsRow}.
+
+\vspace{0.15cm}
+\textbf{ListBillDetailsByPatient:} Função que retorna todas as faturas para um paciente específico dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registros de faturas e retornar cada linha como um objeto \textit{BillDetailsRow}.
+
+\vspace{0.15cm}
+\textbf{ListBillAndAppointmentDetailsByDoctor:} Função que retorna todas as faturas emitidas por um médico específico dado o ID do médico. A função usa uma tabela pipelined para iterar sobre os registros de faturas e retornar cada linha como um objeto \textit{BillAndAppointmentRow}.
+
+\vspace{0.15cm}
+\textbf{ListAppointmentDoctorDetailsByPatient:} Função que retorna todas as consultas agendadas para um paciente específico dado o ID do paciente. A função usa uma tabela pipelined para iterar sobre os registros de consultas e retornar cada linha como um objeto \textit{AppointmentDoctorRow}.
+
+\vspace{0.15cm}
+\textbf{ListAppointmentDoctorStaffDetailsByDoctor:} Função que retorna consultas baseadas no médico responsável dado o ID do médico. A função usa uma tabela pipelined para iterar sobre os registros de consultas e retornar cada linha como um objeto \textit{AppointmentDoctorStaffRow}.
+
+\vspace{0.15cm}
+\textbf{ListAppointmentEpisodePatientDetails:} Função que retorna consultas agendadas para um médico específico (por dia) dado o ID do médico e a data da consulta. A função usa uma tabela pipelined para iterar sobre os registros de consultas e retornar cada linha como um objeto \textit{AppointmentEpisodePatientRow}.
+
+\vspace{0.15cm}
+\textbf{ListAppointmentsByDate:} Função que retorna consultas por data específica. A função usa uma tabela pipelined para iterar sobre os registros de consultas e retornar cada linha como um objeto \textit{AppointmentDatePatientRow}.
+
+\vspace{0.15cm}
+\textbf{ListAppointmentsByDateTime:} Função que retorna consultas por data e hora específica. A função usa uma tabela pipelined para iterar sobre os registros de consultas e retornar cada linha como um objeto \textit{AppointmentDateTimePatientRow}.
+
+\vspace{0.15cm}
+\textbf{ListAppointmentPatientInfoProc:} Procedimento que lista todos os episódios e o respetivo paciente. O procedimento usa a coleta em massa (bulk collect) para armazenar os resultados em uma tabela de objetos \textit{AppointmentPatientInfoRow}.
+
+\vspace{0.15cm}
+\textbf{GetDoctorWithMostAppointmentsProc:} Procedimento que lista os médicos com mais consultas marcadas, incluindo informações detalhadas do paciente. O procedimento usa a coleta em massa (bulk collect) para armazenar os resultados em uma tabela de objetos \textit{DoctorAppointmentCountRow}.

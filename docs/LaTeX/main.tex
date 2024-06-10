@@ -1,0 +1,110 @@
+\documentclass[11pt]{report}
+\usepackage[a4paper, width=6.5in, height=9.2in]{geometry}
+\usepackage[portuguese]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{acro}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{cancel}
+\usepackage{tikz}
+\usepackage{color}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{todonotes}
+\usepackage{minted}
+\usepackage{nicematrix}
+\usepackage{appendix}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\setmintedinline{breaklines=true, mathescape}
+\lstdefinestyle{mystyle}{
+    % backgroundcolor=\color{lightgray!20}, % set background color
+    commentstyle=\color{green!50!black},
+    keywordstyle=\color{blue!80!black},
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{red!80!black},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+
+% Comandos
+\newenvironment{myminted}[1]{
+    \VerbatimEnvironment
+    \begin{minted}[linenos, xleftmargin=16pt, breaklines=true, breakanywhere=true, escapeinside=||]{#1}%
+}{
+    \end{minted}
+}
+
+\newenvironment{coloredtable}[1]{
+    \begin{NiceTabular}{#1}[colortbl-like,rules/color=darkblue!50]
+        \CodeBefore
+            \rowcolor{darkblue}{1}
+            \rowcolors{2}{lightblue!0}{lightblue}
+        \Body
+            \hline
+}{
+    \end{NiceTabular}
+}
+
+
+% Adiciona bibliografia ao índice
+\usepackage[nottoc,notlot,notlof]{tocbibind}
+
+% Definições - Tema minted, espaçamento, etc.
+\usemintedstyle{autumn}
+
+\setstretch{1.3}
+\renewcommand{\arraystretch}{1.3}
+
+\definecolor{darkblue}{RGB}{38,131,198}
+\definecolor{lightblue}{RGB}{208,231,247}
+
+% Ajustar o espaçamento antes de capítulos, indíce, etc.
+\titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-16pt}{30pt}
+
+
+\begin{document}
+
+% Capa
+\include{capa}
+
+% Índice e Listas
+\pagenumbering{roman}
+\tableofcontents
+%\lstlistoflistings
+%\listoffigures
+%\listoftables
+
+% Capítulos
+\newpage
+\pagenumbering{arabic}
+\include{Conteúdo/introducao}
+\include{Conteúdo/arquitetura}
+\include{Conteúdo/oracle}
+\include{Conteúdo/mongodb}
+\include{Conteúdo/neo4j}
+\include{Conteúdo/análise crítica}
+\include{Conteúdo/conclusao}
+\include{Conteúdo/apendice}
+
+\end{document}
