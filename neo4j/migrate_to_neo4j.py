@@ -65,10 +65,18 @@ class Neo4jConnection():
     
     def addSession(self):
         if self.database != 'system':
-            session = self.driver.session(database='system')
-            session.run(f'CREATE DATABASE {self.database} IF NOT EXISTS WAIT')
-            session.close()
-
+            try:
+                session = self.driver.session(database='system')
+                session.run(f'CREATE DATABASE {self.database} IF NOT EXISTS WAIT')
+                session.close()
+                
+            except neo4j.exceptions.ClientError as exception:
+                forbidden_code = 'Neo.ClientError.Security.Forbidden'
+                unsupported_code = 'Neo.ClientError.Statement.UnsupportedAdministrationCommand'
+                
+                if exception.code != forbidden_code and exception.code != unsupported_code:
+                    raise
+            
         self.session = self.driver.session(database=self.database)
     
     def executeQuery(self, query : str, parameters : dict = {}, **kwargs : any):
@@ -82,30 +90,43 @@ class Neo4jConnection():
 def add_constraints(neo4j_conn : Neo4jConnection):
     # Ensure uniqueness constraint on id_patient
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (p:Patient) REQUIRE p.id_patient IS UNIQUE")
+    
     # Ensure uniqueness constraint on insurance policy_number
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (i:Insurance) REQUIRE i.policy_number IS UNIQUE")
+    
     # Ensure uniqueness constraint on emergency contacts
     neo4j_conn.executeQuery("CREATE CONSTRAINT unique_contact FOR (c:EmergencyContact) REQUIRE (c.contact_name, c.phone, c.relation) IS UNIQUE;")
+    
     # Ensure uniqueness constraint on id_record
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (m:MedicalHistory) REQUIRE m.id_record IS UNIQUE")
+    
     # Ensure uniqueness constraint on id_department
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (dep:Department) REQUIRE dep.id_department IS UNIQUE")
+    
     # Ensure uniqueness constraint on id_emp
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (s:Staff) REQUIRE s.id_emp IS UNIQUE;")
+    
     # Ensure uniqueness constraint on id_room
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (r:Room) REQUIRE r.id_room IS UNIQUE")
+    
     # Ensure uniqueness constraint on id_bill
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (b:Bill) REQUIRE b.id_bill IS UNIQUE")
+    
     # Ensure uniqueness constraints on prescriptions
     neo4j_conn.executeQuery("CREATE CONSTRAINT for (m:Medicine) REQUIRE m.id_medicine IS UNIQUE")
+    
     # Ensure uniqueness contraints on medicines
     neo4j_conn.executeQuery("CREATE CONSTRAINT for (p:Prescription) REQUIRE p.id_prescription IS UNIQUE")
+    
     # Ensure uniqueness constraint on lab screening
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (l:LabScreening) REQUIRE l.id_lab IS UNIQUE")
+    
     # Ensure uniqueness constraint on appointment
     neo4j_conn.executeQuery("CREATE CONSTRAINT unique_appointment FOR (a:Appointment) REQUIRE (a.appointment_date, a.appointment_time,a.id_doctor) IS UNIQUE;")
+    
     # Ensure uniqueness constraint on hospitalization
     neo4j_conn.executeQuery("CREATE CONSTRAINT unique_hospitalization FOR (h:Hospitalization) REQUIRE (h.admission_date, h.id_episode) IS UNIQUE;")
+    
     # Ensure uniqueness constraint on episode
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (e:Episode) REQUIRE e.id_episode IS UNIQUE")
 
