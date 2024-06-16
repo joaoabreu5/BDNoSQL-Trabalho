@@ -100,10 +100,6 @@ def add_constraints(neo4j_conn : Neo4jConnection):
     neo4j_conn.executeQuery("CREATE CONSTRAINT for (m:Medicine) REQUIRE m.id_medicine IS UNIQUE")
     # Ensure uniqueness constraint on episode
     neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (e:Episode) REQUIRE e.id_episode IS UNIQUE")
-    # Ensure uniqueness constraints on prescriptions
-    neo4j_conn.executeQuery("CREATE CONSTRAINT for (p:Prescription) REQUIRE p.id_prescription IS UNIQUE")
-    # Ensure uniqueness constraint on lab screening
-    neo4j_conn.executeQuery("CREATE CONSTRAINT FOR (l:LabScreening) REQUIRE l.id_lab IS UNIQUE")
     
 
 def get_counter_id(neo4j_conn : Neo4jConnection, entity_type : str):
@@ -466,12 +462,18 @@ def migrate_rooms(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection):
 
 
 def migrate_lab_screenings(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id_episode):
-
     lab_screenings = oracle_conn.executeQuery(f"""
         SELECT * FROM lab_screening WHERE lab_screening.episode_idepisode = {id_episode}
     """)
 
     for lab_screening in lab_screenings:
+        # Neo4j query to create or merge the episode and technician nodes and relationship with lab screening
+        lab_screening_query = """
+            MATCH (e:Episode {id_episode: $id_episode})
+            MATCH (s:Staff {id_emp: $id_technician})
+            MERGE (e)-[r:LAB_SCREENING_TECHNICIAN {id_lab: $id_lab, test_cost: $test_cost, test_date: $test_date}]->(s)
+        """
+
         node_lab_screening = {
             'id_lab': int(lab_screening[0]),
             'test_cost': float(lab_screening[1]),
@@ -480,15 +482,7 @@ def migrate_lab_screenings(neo4j_conn: Neo4jConnection, oracle_conn: OracleConne
             'id_episode': int(lab_screening[4])
         }
 
-        # Neo4j query to create or merge the episode and technician nodes and relationship with lab screening
-        lab_screening_query = """
-            MATCH (e:Episode {id_episode: $id_episode})
-            MATCH (s:Staff {id_emp: $id_technician})
-            MERGE (e)-[r:LAB_SCREENING_TECHNICIAN {id_lab: $id_lab, test_cost: $test_cost, test_date: $test_date}]->(s)
-        """
-
         neo4j_conn.executeQuery(lab_screening_query, node_lab_screening)
-
 
 def migrate_bills(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnection, id_episode):
     # Query to retrieve all the bills for an episode
@@ -567,6 +561,13 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
     """)
     
     for prescription in prescriptions:
+        # Neo4j query to create or merge the episode and medicine nodes and relationships with prescription
+        prescription_query = """
+            MATCH (e:Episode {id_episode: $id_episode})
+            MATCH (m:Medicine {id_medicine: $id_medicine})
+            MERGE (e)-[r:HAS_PRESCRIPTION {id_prescription: $id_prescription, prescription_date: $prescription_date, dosage: $dosage}]->(m)
+        """
+
         node_prescription = {
             'id_prescription': prescription[0],
             'prescription_date': prescription[1].date(),
@@ -575,17 +576,10 @@ def migrate_prescriptions(neo4j_conn: Neo4jConnection, oracle_conn: OracleConnec
             'id_episode': int(prescription[4]),
         }
 
-        # Neo4j query to create or merge the episode and medicine nodes and relationships with prescription
-        prescription_query = """
-            MATCH (e:Episode {id_episode: $id_episode})
-            MATCH (m:Medicine {id_medicine: $id_medicine})
-            MERGE (e)-[r:HAS_PRESCRIPTION {id_prescription: $id_prescription, prescription_date: $prescription_date, dosage: $dosage}]->(m)
-        """
-        
         neo4j_conn.executeQuery(prescription_query, node_prescription)
 
-
 def migrate_appointment(neo4j_conn: Neo4jConnection, episode):
+    
     node_appointment = {
         'schedule_on': episode[2].date(),
         'appointment_date': episode[3].date(),
@@ -668,11 +662,11 @@ def migrate_episodes(oracle_conn: OracleConnection, neo4j_conn: Neo4jConnection)
             
             # Migrate episode bills
             migrate_bills(neo4j_conn, oracle_conn, node_episode['id_episode'])
+            
             # Migrate episode prescriptions
             migrate_prescriptions(neo4j_conn, oracle_conn, node_episode['id_episode'])
             # Migrate episode lab screenings
             migrate_lab_screenings(neo4j_conn, oracle_conn, node_episode['id_episode'])
-
 
             if episode[2]:
                 # Migrate episode appointment
