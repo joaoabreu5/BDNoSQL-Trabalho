@@ -159,5 +159,5 @@ MATCH (p:Patient)-[:HAS_EMERGENCY_CONTACT]->(ec:EmergencyContact {contact_name: 
 RETURN p, ec;
 
 // 35) Buscar Pacientes pelo record_id
-MATCH (p:Patient)-[:HAS_MEDICAL_HISTORY]->(mh:MedicalHistory {record_id: 24})
+MATCH (p:Patient)-[:HAS_MEDICAL_HISTORY]->(mh:MedicalHistory {id_record: 24})
 RETURN p, mh;
