@@ -111,22 +111,40 @@ RETURN COUNT(s) AS total_number_of_staff;
 MATCH (s:Staff {ssn: 329594711})
 RETURN s;
 
-// 2) Get all staff who have left
+// 26) Get all staff who have left
 MATCH (s:Staff)
 WHERE s.is_active_status = false
 RETURN s
 
 // 27) Get all DOCTOR roles who have left
+MATCH (s:Staff)-[:LEFT]->(d)
+WHERE  s.role = "DOCTOR"
+WITH s
+RETURN s
+
+// 28) Get all Doctors who are not working
 MATCH (s:Staff)
 WHERE s.is_active_status = false AND s.role = "DOCTOR"
 RETURN s
 
-// 28) Get all NURSE roles who have left
+// 29) Get all NURSE roles who have left
+MATCH (s:Staff)-[:LEFT]->(d)
+WHERE  s.role = "NURSE"
+WITH s
+RETURN s
+
+// 30) Get all NURSE who are not working
 MATCH (s:Staff)
 WHERE s.is_active_status = false AND s.role = "NURSE"
 RETURN s
 
-// 29) Get all TECHNICIAN roles who have left
+// 31) Get all TECHNICIAN roles who have left
+MATCH (s:Staff)-[:LEFT]->(d)
+WHERE  s.role = "TECHNICIAN"
+WITH s
+RETURN s
+
+// 32) Get all TECHNICIAN who are not working
 MATCH (s:Staff)
 WHERE s.is_active_status = false AND s.role = "TECHNICIAN"
 RETURN s
